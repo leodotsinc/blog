@@ -23,6 +23,8 @@ jobs:
   build-and-push:
     needs: build-check
     runs-on: ubuntu-latest
+    # Only run on push to main OR PRs from the same repo (not forks)
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
 
     permissions:
       contents: read
@@ -50,6 +52,8 @@ jobs:
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
+    # Only run on push to main OR PRs from the same repo (not forks)
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
 
     steps:
       - name: Set up SSH
