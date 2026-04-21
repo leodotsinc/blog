@@ -44,7 +44,7 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_ed25519 -p ${{ secrets.SSH_PORT }} ${{ secrets.DEPLOY_USER }}@${{ secrets.VPS_IP }} << 'ENDSSH'
             set -e
-            cd ~/apps/leodots.dev
+            cd /home/leo/apps/leodots.dev
             docker compose pull blog
             docker stop leodots-blog 2>/dev/null || true
             docker rm -f leodots-blog 2>/dev/null || true
