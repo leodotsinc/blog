@@ -22,6 +22,7 @@ jobs:
 
   build-and-push:
     needs: build-check
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
 
     permissions:
@@ -49,6 +50,7 @@ jobs:
 
   deploy:
     needs: build-and-push
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
 
     steps:
