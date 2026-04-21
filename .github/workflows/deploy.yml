@@ -1,36 +1,18 @@
-name: Build, Push and Deploy
+name: Deploy
 
 on:
   push:
-    branches:
-      - main
-  pull_request:
+    branches: [main]
 
 jobs:
-  build-check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: yarn
-
-      - run: yarn install
-      - run: yarn build
-
   build-and-push:
-    needs: build-check
-    if: github.event_name == 'push'
+    name: Build & Push
     runs-on: ubuntu-latest
-
     permissions:
       contents: read
       packages: write
-
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Log in to GitHub Container Registry
@@ -41,18 +23,15 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Docker image
-        run: |
-          docker build -t ghcr.io/${{ github.repository }}:latest .
+        run: docker build -t ghcr.io/${{ github.repository }}:latest .
 
       - name: Push Docker image
-        run: |
-          docker push ghcr.io/${{ github.repository }}:latest
+        run: docker push ghcr.io/${{ github.repository }}:latest
 
   deploy:
+    name: Deploy
     needs: build-and-push
-    if: github.event_name == 'push'
     runs-on: ubuntu-latest
-
     steps:
       - name: Set up SSH
         run: |
@@ -61,31 +40,15 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p ${{ secrets.SSH_PORT }} ${{ secrets.VPS_IP }} >> ~/.ssh/known_hosts
 
-      - name: Deploy via SSH using Docker Compose
+      - name: Deploy via SSH
         run: |
           ssh -i ~/.ssh/id_ed25519 -p ${{ secrets.SSH_PORT }} ${{ secrets.DEPLOY_USER }}@${{ secrets.VPS_IP }} << 'ENDSSH'
             set -e
-            
-            echo "📂 Navigating to blog directory..."
             cd ~/apps/leodots.dev
-            
-            echo "⬇️  Pulling new image..."
-            # Fazemos o pull ANTES de parar o container. 
-            # Assim o site continua no ar enquanto baixa a atualização.
             docker compose pull blog
-            
-            echo "🛑 Stopping old container..."
-            # O "|| true" garante que não quebre se o container não estiver rodando
             docker stop leodots-blog 2>/dev/null || true
             docker rm -f leodots-blog 2>/dev/null || true
-            
-            echo "🚀 Starting new container..."
-            # Sobe o novo
             docker compose up -d blog
-            
-            echo "✅ Deployment completed!"
-            
-            echo "🧹 Cleaning up old images..."
             docker image prune -af --filter "until=24h"
           ENDSSH
 
@@ -94,11 +57,9 @@ jobs:
           ssh -i ~/.ssh/id_ed25519 -p ${{ secrets.SSH_PORT }} ${{ secrets.DEPLOY_USER }}@${{ secrets.VPS_IP }} '
             sleep 5
             if docker ps | grep -q leodots-blog; then
-              echo "✅ Container leodots-blog is running"
               docker ps | grep leodots-blog
               exit 0
             else
-              echo "❌ Container failed to start"
               docker logs leodots-blog --tail 50
               exit 1
             fi
