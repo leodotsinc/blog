@@ -33,7 +33,7 @@
     "react-dom": "19.1.0",
     "rehype-pretty-code": "^0.14.3",
     "rehype-slug": "^6.0.0",
-    "shiki": "^3.19.0",
+    "shiki": "^4.0.2",
     "tailwind-merge": "^3.5.0",
     "tailwindcss-animate": "^1.0.7",
     "three": "^0.178.0",
