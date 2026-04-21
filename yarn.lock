@@ -6320,10 +6320,10 @@ rehype-parse@^9.0.0:
     hast-util-from-html "^2.0.0"
     unified "^11.0.0"
 
-rehype-pretty-code@^0.14.1:
-  version "0.14.1"
-  resolved "https://registry.npmjs.org/rehype-pretty-code/-/rehype-pretty-code-0.14.1.tgz"
-  integrity sha512-IpG4OL0iYlbx78muVldsK86hdfNoht0z63AP7sekQNW2QOTmjxB7RbTO+rhIYNGRljgHxgVZoPwUl6bIC9SbjA==
+rehype-pretty-code@^0.14.3:
+  version "0.14.3"
+  resolved "https://registry.yarnpkg.com/rehype-pretty-code/-/rehype-pretty-code-0.14.3.tgz#0da342ec5d90247beba0b48f9ba85d24512d932b"
+  integrity sha512-Cz692FeYusTjT5cfFWLc4r7JhgC3/JlJptgUh4iffBxWxUnWW1oqbWFi7jGCeq00DYUm8yzoTnvpocaYa5x82g==
   dependencies:
     "@types/hast" "^3.0.4"
     hast-util-to-string "^3.0.0"
