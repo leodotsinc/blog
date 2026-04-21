@@ -37,7 +37,7 @@
     "tailwind-merge": "^3.5.0",
     "tailwindcss-animate": "^1.0.7",
     "three": "^0.178.0",
-    "typed.js": "^2.1.0"
+    "typed.js": "^3.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
