@@ -1,66 +1,12 @@
 name: Deploy
-
 on:
   push:
     branches: [main]
-
 jobs:
-  build-and-push:
-    name: Build & Push
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Docker image
-        run: docker build -t ghcr.io/${{ github.repository }}:latest .
-
-      - name: Push Docker image
-        run: docker push ghcr.io/${{ github.repository }}:latest
-
   deploy:
-    name: Deploy
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set up SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -p ${{ secrets.SSH_PORT }} ${{ secrets.VPS_IP }} >> ~/.ssh/known_hosts
-
-      - name: Deploy via SSH
-        run: |
-          ssh -i ~/.ssh/id_ed25519 -p ${{ secrets.SSH_PORT }} ${{ secrets.DEPLOY_USER }}@${{ secrets.VPS_IP }} << 'ENDSSH'
-            set -e
-            cd /home/leo/apps/leodots.dev
-            docker compose pull blog
-            docker stop leodots-blog 2>/dev/null || true
-            docker rm -f leodots-blog 2>/dev/null || true
-            docker compose up -d blog
-            docker image prune -af --filter "until=24h"
-          ENDSSH
-
-      - name: Health check
-        run: |
-          ssh -i ~/.ssh/id_ed25519 -p ${{ secrets.SSH_PORT }} ${{ secrets.DEPLOY_USER }}@${{ secrets.VPS_IP }} '
-            sleep 5
-            if docker ps | grep -q leodots-blog; then
-              docker ps | grep leodots-blog
-              exit 0
-            else
-              docker logs leodots-blog --tail 50
-              exit 1
-            fi
-          '
+    uses: leodotsinc/.github/.github/workflows/deploy.yml@main
+    secrets: inherit
+    with:
+      app_dir: leodots.dev
+      service_name: blog
+      container_name: leodots-blog
