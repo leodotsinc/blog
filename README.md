@@ -7,7 +7,7 @@ This project uses [Yarn](https://yarnpkg.com/) as the package manager.
 **1. Install dependencies:**
 
 ```bash
-yarn install
+yarn install   
 ```
 
 **2. Run the development server:**
