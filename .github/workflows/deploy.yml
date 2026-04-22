@@ -9,7 +9,7 @@ permissions:
   packages: write
 
 jobs:
-  deploy:
+  ci:
     uses: leodotsinc/.github/.github/workflows/deploy.yml@main
     secrets: inherit
     with:
