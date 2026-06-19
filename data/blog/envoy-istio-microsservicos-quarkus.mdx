@@ -1,0 +1,414 @@
+---
+title: "Envoy e Istio em microsserviços: como funcionam, quando usar e como aplicar com Quarkus"
+description: "Guia prático em pt-BR sobre Envoy, Istio, service mesh, comunicação entre serviços e um exemplo com duas aplicações Quarkus"
+date: 2026-06-18
+tags:
+  - Envoy
+  - Istio
+  - Quarkus
+  - Microsserviços
+  - Kubernetes
+  - Service Mesh
+image: "/diagrams/envoy-istio-quarkus.svg"
+---
+
+Quando um sistema cresce, a complexidade deixa de estar só no código e passa a aparecer na rede: autenticação entre serviços, rastreamento, timeouts, retries, balanceamento, observabilidade e políticas de segurança. É nesse ponto que **Envoy** e **Istio** começam a fazer diferença.
+
+Se você já ouviu os dois nomes no mesmo contexto e ficou com a impressão de que são a mesma coisa, a resposta curta é: **não são**. O Envoy é o proxy de execução do tráfego. O Istio é a camada de controle que organiza esse tráfego em uma malha de serviços.
+
+> Pense assim: o Envoy está “no caminho” da requisição. O Istio decide como esse caminho deve se comportar.
+
+## Visão rápida
+
+- **Envoy**: proxy L7 de alta performance, usado como sidecar, gateway ou proxy independente.
+- **Istio**: service mesh que fornece controle centralizado de tráfego, segurança e telemetria.
+- **Relação entre os dois**: o Istio normalmente usa o Envoy como data plane.
+
+Na prática, você escreve sua aplicação Quarkus normalmente. O mesh intercepta o tráfego e aplica regras sem exigir mudanças profundas no código de negócio.
+
+## O que é o Envoy?
+
+O Envoy é um proxy moderno orientado a serviço. Ele nasceu para resolver problemas comuns em arquiteturas distribuídas:
+
+- roteamento inteligente de requisições;
+- balanceamento de carga;
+- retries e timeouts;
+- circuit breaking;
+- TLS e mTLS;
+- métricas, logs e tracing;
+- observabilidade no nível de rede e aplicação.
+
+O ponto mais importante é que o Envoy é um **proxy de data plane**. Ele executa decisões já definidas por configuração. Em vez de acoplar regras de rede ao código do serviço, você deixa o proxy aplicar essas regras no tráfego que entra e sai do processo.
+
+Isso o torna útil em três papéis comuns:
+
+1. **Sidecar** ao lado de um serviço;
+2. **Gateway** na borda do cluster;
+3. **Proxy intermediário** em cenários mais específicos.
+
+## O que é o Istio?
+
+O Istio é uma **service mesh**. Em termos práticos, ele fornece um conjunto de APIs e componentes para administrar o tráfego entre serviços de forma padronizada.
+
+Ele se apoia em proxies distribuídos, geralmente Envoy, e oferece:
+
+- controle de tráfego entre serviços;
+- políticas de segurança;
+- identidade de serviço;
+- criptografia mútua entre workloads;
+- telemetria centralizada;
+- regras de roteamento mais ricas do que DNS ou load balancers simples.
+
+A peça central do Istio é o **control plane**. É ele que distribui configuração para os proxies, em vez de cada aplicação precisar conhecer toda a lógica de malha.
+
+## Diferença entre Envoy e Istio
+
+| Aspecto | Envoy | Istio |
+|---|---|---|
+| Papel principal | Proxy / data plane | Service mesh / control plane |
+| Onde atua | No caminho do tráfego | Define políticas e configurações |
+| Quem usa a lógica | O próprio proxy | O Istio configura o proxy |
+| Foco | Performance e execução do tráfego | Governança, segurança e observabilidade |
+| Pode ser usado sozinho? | Sim | Normalmente depende de proxies na malha |
+
+A forma mais fácil de lembrar é esta:
+
+- **Envoy** responde à pergunta: *“como a requisição vai passar?”*
+- **Istio** responde à pergunta: *“qual política deve ser aplicada nessa passagem?”*
+
+## Como eles se relacionam na arquitetura
+
+No modelo clássico de service mesh com sidecar:
+
+1. cada pod recebe um proxy Envoy ao lado da aplicação;
+2. o tráfego de entrada e saída do pod é interceptado;
+3. o Istio distribui configurações para esses proxies;
+4. o proxy aplica políticas de segurança, roteamento e observabilidade;
+5. a aplicação continua focada na regra de negócio.
+
+Isso reduz acoplamento. Em vez de espalhar middleware de rede pelo código, você passa a gerir boa parte dessas decisões de forma declarativa.
+
+## Como a comunicação entre serviços acontece
+
+Vamos imaginar o fluxo entre dois serviços Quarkus:
+
+- `orders-service`: cria pedidos;
+- `payments-service`: autoriza pagamentos.
+
+### Fluxo simplificado
+
+1. O cliente chama o `orders-service`.
+2. O `orders-service` chama o `payments-service` via HTTP.
+3. O tráfego de saída sai da aplicação e é interceptado pelo **Envoy sidecar**.
+4. O Envoy consulta a configuração recebida do Istio: rotas, identidade, mTLS, retries, timeout e destino permitido.
+5. O proxy estabelece a conexão segura com o Envoy do `payments-service`.
+6. O tráfego entra no pod de destino, passa novamente pelo proxy e só então chega à aplicação Quarkus.
+7. Métricas e traces podem ser enviados para a stack de observabilidade.
+
+O ponto-chave aqui é que a aplicação não precisa implementar isso manualmente. O mesh faz a parte “chata” da rede.
+
+## Diagrama de arquitetura
+
+<img
+  src="/diagrams/envoy-istio-quarkus.svg"
+  alt="Diagrama de arquitetura com Istio, Envoy e duas aplicações Quarkus"
+  style={{
+    width: "100%",
+    height: "auto",
+    borderRadius: "16px",
+    border: "1px solid var(--tw-prose-quotes)",
+  }}
+/>
+
+A figura acima simplifica a ideia principal:
+
+- o tráfego externo entra por um gateway;
+- o gateway e os pods usam Envoy;
+- o Istio distribui políticas e certificados;
+- a observabilidade vem do plano de dados, não da regra de negócio.
+
+## Exemplo prático com 2 apps Quarkus
+
+Vamos usar dois serviços simples para deixar o cenário concreto.
+
+### 1) orders-service
+
+Esse serviço recebe um pedido e chama o serviço de pagamentos para autorizar a transação.
+
+```java
+package com.example.orders;
+
+import jakarta.inject.Inject;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import org.eclipse.microprofile.rest.client.inject.RestClient;
+
+@Path("/orders")
+@Produces(MediaType.APPLICATION_JSON)
+public class OrderResource {
+
+    @Inject
+    @RestClient
+    PaymentClient paymentClient;
+
+    @POST
+    public Response create(OrderRequest request) {
+        PaymentResponse payment = paymentClient.authorize(
+            new PaymentRequest(request.orderId(), request.amount())
+        );
+
+        OrderResponse response = new OrderResponse(
+            request.orderId(),
+            "CREATED",
+            payment.status()
+        );
+
+        return Response.status(Response.Status.CREATED).entity(response).build();
+    }
+}
+```
+
+O client REST do Quarkus pode apontar para o DNS do serviço no cluster:
+
+```java
+package com.example.orders;
+
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
+
+@Path("/payments")
+@RegisterRestClient(configKey = "payments-api")
+public interface PaymentClient {
+
+    @POST
+    PaymentResponse authorize(PaymentRequest request);
+}
+```
+
+E a configuração pode ser algo assim:
+
+```properties
+quarkus.rest-client.payments-api.url=http://payments-service.default.svc.cluster.local:8080
+```
+
+### 2) payments-service
+
+Esse serviço expõe a operação de autorização de pagamento.
+
+```java
+package com.example.payments;
+
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.core.MediaType;
+
+@Path("/payments")
+@Produces(MediaType.APPLICATION_JSON)
+@Consumes(MediaType.APPLICATION_JSON)
+public class PaymentResource {
+
+    @POST
+    public PaymentResponse authorize(PaymentRequest request) {
+        return new PaymentResponse(request.orderId(), "APPROVED");
+    }
+}
+```
+
+### Dependências Quarkus
+
+Nos dois projetos, você normalmente usaria algo na linha de:
+
+```xml
+<dependency>
+  <groupId>io.quarkus</groupId>
+  <artifactId>quarkus-rest</artifactId>
+</dependency>
+<dependency>
+  <groupId>io.quarkus</groupId>
+  <artifactId>quarkus-rest-jackson</artifactId>
+</dependency>
+```
+
+E, no `orders-service`, também:
+
+```xml
+<dependency>
+  <groupId>io.quarkus</groupId>
+  <artifactId>quarkus-rest-client-reactive</artifactId>
+</dependency>
+```
+
+## Kubernetes + Istio
+
+A aplicação continua sendo uma aplicação normal. O que muda é a forma como ela é implantada.
+
+Um `Deployment` com injeção do sidecar pode ficar assim:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: orders-service
+  template:
+    metadata:
+      labels:
+        app: orders-service
+      annotations:
+        sidecar.istio.io/inject: "true"
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/leodots/orders-service:1.0.0
+          ports:
+            - containerPort: 8080
+```
+
+O mesmo vale para `payments-service`.
+
+A vantagem aparece quando você quer aplicar uma regra de tráfego sem mexer no código.
+
+### Exemplo de canary com Istio
+
+Com `VirtualService` e `DestinationRule`, você pode mandar 90% do tráfego para `v1` e 10% para `v2`:
+
+```yaml
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: payments-service
+spec:
+  host: payments-service
+  subsets:
+    - name: v1
+      labels:
+        version: v1
+    - name: v2
+      labels:
+        version: v2
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: payments-service
+spec:
+  hosts:
+    - payments-service
+  http:
+    - route:
+        - destination:
+            host: payments-service
+            subset: v1
+          weight: 90
+        - destination:
+            host: payments-service
+            subset: v2
+          weight: 10
+```
+
+Isso é extremamente útil para rollout gradual, testes A/B e redução de risco em produção.
+
+## Benefícios reais
+
+### 1. Segurança com mTLS
+
+O mesh pode garantir criptografia entre serviços sem exigir que cada equipe implemente isso na mão. Em ambientes com muitos serviços, isso reduz erro humano e aumenta consistência.
+
+### 2. Observabilidade padronizada
+
+Em vez de espalhar instrumentação em cada serviço, parte importante dos dados de rede pode ser coletada no proxy. Isso ajuda em tracing distribuído, métricas e diagnóstico.
+
+### 3. Controle de tráfego mais rico
+
+Com Istio, você consegue aplicar:
+
+- retries;
+- timeouts;
+- circuit breaking;
+- espelhamento de tráfego;
+- roteamento por versão;
+- políticas por serviço, namespace ou identidade.
+
+### 4. Menos lógica de infraestrutura no código
+
+Seu Quarkus fica mais limpo. A aplicação continua cuidando da regra de negócio, enquanto o mesh fica responsável por políticas transversais.
+
+## Trade-offs e custos
+
+Service mesh não é almoço grátis. Os principais custos são:
+
+- **complexidade operacional**: há mais componentes para administrar;
+- **uso de recursos**: sidecars consomem CPU e memória;
+- **curva de aprendizado**: conceitos como subsets, gateways, peer authentication e policies levam tempo;
+- **debugging mais difícil no começo**: o tráfego passa por mais camadas.
+
+Se você tem poucos serviços e pouca exigência de governança, talvez um balanceador simples e bibliotecas no app já sejam suficientes.
+
+## Quando faz sentido usar
+
+Use Envoy e Istio quando você tiver pelo menos parte destes requisitos:
+
+- vários times publicando serviços independentemente;
+- necessidade de mTLS entre serviços internos;
+- exigência de compliance ou zero trust;
+- necessidade de canary, blue/green ou traffic shifting;
+- telemetria consistente em toda a plataforma;
+- APIs internas críticas com alta disponibilidade.
+
+## Quando talvez não valha a pena
+
+Talvez você esteja melhor sem service mesh se:
+
+- sua arquitetura ainda é pequena;
+- você quer reduzir o número de peças operacionais;
+- o time ainda não domina Kubernetes com segurança;
+- a maior parte do valor está em uma camada de gateway ou API management mais simples.
+
+O ponto não é “usar Istio porque sim”. O ponto é usar quando o ganho de governança superar o custo de operação.
+
+## Cenários reais onde isso brilha
+
+### Canary release
+
+Enviar parte do tráfego para uma versão nova sem redeploy do cliente.
+
+### Segurança zero trust
+
+Mesmo dentro do cluster, cada serviço precisa provar sua identidade.
+
+### Resiliência
+
+Configurar timeout e retries de forma consistente, evitando que uma cascata de falhas derrube o sistema.
+
+### Egress control
+
+Controlar de forma centralizada para onde os serviços podem sair, inclusive destinos externos.
+
+### Diagnóstico de produção
+
+Quando uma chamada entre serviços fica lenta, o trace e as métricas do proxy ajudam a descobrir onde está o gargalo.
+
+## Resumo mental para guardar
+
+- **Envoy** é o proxy que executa o tráfego.
+- **Istio** é a camada que governa esse tráfego.
+- **Quarkus** continua focado na regra de negócio.
+- **Kubernetes + Istio + Envoy** transformam comunicação distribuída em algo mais previsível, seguro e observável.
+
+## Conclusão
+
+Em microsserviços, a comunicação entre serviços é tão importante quanto o código em si. Envoy resolve a parte de execução do tráfego com performance e flexibilidade. Istio organiza tudo isso em uma service mesh com políticas, segurança e observabilidade.
+
+Se você está construindo ou operando uma plataforma com múltiplos serviços Quarkus, essa combinação pode reduzir bastante o trabalho repetitivo de infraestrutura e abrir espaço para recursos avançados como mTLS, canary releases e tracing distribuído.
+
+A melhor forma de pensar é esta: **não mude o código para resolver tudo na rede; faça o mesh carregar o peso que é dele**.
