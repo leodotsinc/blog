@@ -1,6 +1,7 @@
 ---
 title: "Envoy e Istio em microsserviços: como funcionam, quando usar e como aplicar com Quarkus"
-description: "Guia prático em pt-BR sobre Envoy, Istio, service mesh, comunicação entre serviços e um exemplo com duas aplicações Quarkus"
+description: "Guia prático sobre Envoy, Istio, service mesh, comunicação entre serviços e um exemplo com duas aplicações Quarkus"
+locale: "pt-BR"
 date: 2026-06-18
 tags:
   - Envoy
@@ -63,13 +64,44 @@ A peça central do Istio é o **control plane**. É ele que distribui configura�
 
 ## Diferença entre Envoy e Istio
 
-| Aspecto | Envoy | Istio |
-|---|---|---|
-| Papel principal | Proxy / data plane | Service mesh / control plane |
-| Onde atua | No caminho do tráfego | Define políticas e configurações |
-| Quem usa a lógica | O próprio proxy | O Istio configura o proxy |
-| Foco | Performance e execução do tráfego | Governança, segurança e observabilidade |
-| Pode ser usado sozinho? | Sim | Normalmente depende de proxies na malha |
+<div className="my-6 overflow-hidden rounded-2xl border border-border/60 bg-card/40 shadow-sm">
+  <table className="w-full border-collapse text-left text-sm">
+    <thead className="bg-muted/60 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+      <tr>
+        <th className="px-4 py-3 font-medium">Aspecto</th>
+        <th className="px-4 py-3 font-medium">Envoy</th>
+        <th className="px-4 py-3 font-medium">Istio</th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-border/60">
+      <tr>
+        <td className="px-4 py-3 font-medium text-foreground">Papel principal</td>
+        <td className="px-4 py-3 text-muted-foreground">Proxy / data plane</td>
+        <td className="px-4 py-3 text-muted-foreground">Service mesh / control plane</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 font-medium text-foreground">Onde atua</td>
+        <td className="px-4 py-3 text-muted-foreground">No caminho do tráfego</td>
+        <td className="px-4 py-3 text-muted-foreground">Define políticas e configurações</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 font-medium text-foreground">Quem usa a lógica</td>
+        <td className="px-4 py-3 text-muted-foreground">O próprio proxy</td>
+        <td className="px-4 py-3 text-muted-foreground">O Istio configura o proxy</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 font-medium text-foreground">Foco</td>
+        <td className="px-4 py-3 text-muted-foreground">Performance e execução do tráfego</td>
+        <td className="px-4 py-3 text-muted-foreground">Governança, segurança e observabilidade</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 font-medium text-foreground">Pode ser usado sozinho?</td>
+        <td className="px-4 py-3 text-muted-foreground">Sim</td>
+        <td className="px-4 py-3 text-muted-foreground">Normalmente depende de proxies na malha</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
 
 A forma mais fácil de lembrar é esta:
 

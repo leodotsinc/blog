@@ -1,0 +1,446 @@
+---
+title: "Envoy and Istio in microservices: how they work, when to use them, and how to apply them with Quarkus"
+description: "A practical guide to Envoy, Istio, service mesh architecture, service-to-service communication, and a two-service Quarkus example"
+locale: "en"
+date: 2026-06-18
+tags:
+  - Envoy
+  - Istio
+  - Quarkus
+  - Microservices
+  - Kubernetes
+  - Service Mesh
+image: "/diagrams/envoy-istio-quarkus.svg"
+---
+
+As a system grows, complexity starts moving beyond the code itself and into the network: service authentication, tracing, timeouts, retries, load balancing, observability, and security policies. That is where **Envoy** and **Istio** start to matter.
+
+If you have seen both names in the same conversation and wondered whether they are the same thing, the short answer is: **they are not**. Envoy is the traffic execution proxy. Istio is the control layer that organizes that traffic inside a service mesh.
+
+> Think of it this way: Envoy is “in the path” of the request. Istio decides how that path should behave.
+
+## Quick overview
+
+- **Envoy**: a high-performance L7 proxy used as a sidecar, gateway, or standalone proxy.
+- **Istio**: a service mesh that provides centralized traffic control, security, and telemetry.
+- **Relationship between the two**: Istio usually uses Envoy as its data plane.
+
+In practice, you keep writing your Quarkus application normally. The mesh intercepts the traffic and applies policies without forcing deep changes to your business code.
+
+## What is Envoy?
+
+Envoy is a modern service-oriented proxy. It was built to solve common problems in distributed systems:
+
+- smart request routing;
+- load balancing;
+- retries and timeouts;
+- circuit breaking;
+- TLS and mTLS;
+- metrics, logs, and tracing;
+- observability at both the network and application levels.
+
+The key point is that Envoy is a **data plane proxy**. It executes decisions that are already defined by configuration. Instead of coupling network rules to the service code, you let the proxy apply those rules to traffic entering and leaving the process.
+
+That makes it useful in three common roles:
+
+1. **Sidecar** next to a service;
+2. **Gateway** at the edge of the cluster;
+3. **Intermediate proxy** in more specific scenarios.
+
+## What is Istio?
+
+Istio is a **service mesh**. In practical terms, it provides a set of APIs and components to manage service-to-service traffic in a standardized way.
+
+It relies on distributed proxies, usually Envoy, and provides:
+
+- traffic control between services;
+- security policies;
+- service identity;
+- mutual encryption between workloads;
+- centralized telemetry;
+- routing rules richer than DNS or simple load balancers.
+
+The central piece of Istio is the **control plane**. It distributes configuration to the proxies, instead of each application having to know the full mesh logic.
+
+## Envoy vs Istio
+
+<div className="my-6 overflow-hidden rounded-2xl border border-border/60 bg-card/40 shadow-sm">
+  <table className="w-full border-collapse text-left text-sm">
+    <thead className="bg-muted/60 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+      <tr>
+        <th className="px-4 py-3 font-medium">Aspect</th>
+        <th className="px-4 py-3 font-medium">Envoy</th>
+        <th className="px-4 py-3 font-medium">Istio</th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-border/60">
+      <tr>
+        <td className="px-4 py-3 font-medium text-foreground">Main role</td>
+        <td className="px-4 py-3 text-muted-foreground">Proxy / data plane</td>
+        <td className="px-4 py-3 text-muted-foreground">Service mesh / control plane</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 font-medium text-foreground">Where it acts</td>
+        <td className="px-4 py-3 text-muted-foreground">In the traffic path</td>
+        <td className="px-4 py-3 text-muted-foreground">Defines policies and configuration</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 font-medium text-foreground">Who uses the logic</td>
+        <td className="px-4 py-3 text-muted-foreground">The proxy itself</td>
+        <td className="px-4 py-3 text-muted-foreground">Istio configures the proxy</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 font-medium text-foreground">Focus</td>
+        <td className="px-4 py-3 text-muted-foreground">Traffic performance and execution</td>
+        <td className="px-4 py-3 text-muted-foreground">Governance, security, and observability</td>
+      </tr>
+      <tr>
+        <td className="px-4 py-3 font-medium text-foreground">Can it be used alone?</td>
+        <td className="px-4 py-3 text-muted-foreground">Yes</td>
+        <td className="px-4 py-3 text-muted-foreground">Usually depends on proxies in the mesh</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+The easiest way to remember it is:
+
+- **Envoy** answers: *“how will the request pass through?”*
+- **Istio** answers: *“which policy should be applied to that path?”*
+
+## How they fit together in the architecture
+
+In the classic sidecar-based service mesh model:
+
+1. each pod gets an Envoy proxy next to the application;
+2. inbound and outbound pod traffic is intercepted;
+3. Istio distributes configuration to those proxies;
+4. the proxy applies security, routing, and observability policies;
+5. the application stays focused on business logic.
+
+This reduces coupling. Instead of spreading network middleware across the codebase, you manage most of those decisions declaratively.
+
+## How service-to-service communication works
+
+Let’s imagine the flow between two Quarkus services:
+
+- `orders-service`: creates orders;
+- `payments-service`: authorizes payments.
+
+### Simplified flow
+
+1. The client calls `orders-service`.
+2. `orders-service` calls `payments-service` over HTTP.
+3. The outgoing traffic leaves the application and is intercepted by the **Envoy sidecar**.
+4. Envoy checks the configuration it received from Istio: routes, identity, mTLS, retries, timeout, and allowed destination.
+5. The proxy establishes a secure connection with the `payments-service` Envoy proxy.
+6. The traffic enters the destination pod, passes through the proxy again, and only then reaches the Quarkus application.
+7. Metrics and traces can be sent to the observability stack.
+
+The key point is that the application does not need to implement any of this manually. The mesh handles the networking heavy lifting.
+
+## Architecture diagram
+
+<img
+  src="/diagrams/envoy-istio-quarkus.svg"
+  alt="Architecture diagram showing Istio, Envoy, and two Quarkus applications"
+  style={{
+    width: "100%",
+    height: "auto",
+    borderRadius: "16px",
+    border: "1px solid var(--tw-prose-quotes)",
+  }}
+/>
+
+The figure above simplifies the main idea:
+
+- external traffic enters through a gateway;
+- the gateway and the pods use Envoy;
+- Istio distributes policies and certificates;
+- observability comes from the data plane, not from the business logic.
+
+## Practical example with 2 Quarkus apps
+
+Let’s use two simple services to make the scenario concrete.
+
+### 1) orders-service
+
+This service receives an order and calls the payments service to authorize the transaction.
+
+```java
+package com.example.orders;
+
+import jakarta.inject.Inject;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import org.eclipse.microprofile.rest.client.inject.RestClient;
+
+@Path("/orders")
+@Produces(MediaType.APPLICATION_JSON)
+public class OrderResource {
+
+    @Inject
+    @RestClient
+    PaymentClient paymentClient;
+
+    @POST
+    public Response create(OrderRequest request) {
+        PaymentResponse payment = paymentClient.authorize(
+            new PaymentRequest(request.orderId(), request.amount())
+        );
+
+        OrderResponse response = new OrderResponse(
+            request.orderId(),
+            "CREATED",
+            payment.status()
+        );
+
+        return Response.status(Response.Status.CREATED).entity(response).build();
+    }
+}
+```
+
+The Quarkus REST client can point to the service DNS name inside the cluster:
+
+```java
+package com.example.orders;
+
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
+
+@Path("/payments")
+@RegisterRestClient(configKey = "payments-api")
+public interface PaymentClient {
+
+    @POST
+    PaymentResponse authorize(PaymentRequest request);
+}
+```
+
+And the configuration can look like this:
+
+```properties
+quarkus.rest-client.payments-api.url=http://payments-service.default.svc.cluster.local:8080
+```
+
+### 2) payments-service
+
+This service exposes the payment authorization operation.
+
+```java
+package com.example.payments;
+
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.core.MediaType;
+
+@Path("/payments")
+@Produces(MediaType.APPLICATION_JSON)
+@Consumes(MediaType.APPLICATION_JSON)
+public class PaymentResource {
+
+    @POST
+    public PaymentResponse authorize(PaymentRequest request) {
+        return new PaymentResponse(request.orderId(), "APPROVED");
+    }
+}
+```
+
+### Quarkus dependencies
+
+In both projects, you would typically use something like:
+
+```xml
+<dependency>
+  <groupId>io.quarkus</groupId>
+  <artifactId>quarkus-rest</artifactId>
+</dependency>
+<dependency>
+  <groupId>io.quarkus</groupId>
+  <artifactId>quarkus-rest-jackson</artifactId>
+</dependency>
+```
+
+And in `orders-service`, also:
+
+```xml
+<dependency>
+  <groupId>io.quarkus</groupId>
+  <artifactId>quarkus-rest-client-reactive</artifactId>
+</dependency>
+```
+
+## Kubernetes + Istio
+
+The application is still just a normal application. What changes is how it is deployed.
+
+A `Deployment` with sidecar injection can look like this:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: orders-service
+  template:
+    metadata:
+      labels:
+        app: orders-service
+      annotations:
+        sidecar.istio.io/inject: "true"
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/leodots/orders-service:1.0.0
+          ports:
+            - containerPort: 8080
+```
+
+The same applies to `payments-service`.
+
+The advantage becomes clear when you want to apply a traffic rule without touching the code.
+
+### Canary example with Istio
+
+With `VirtualService` and `DestinationRule`, you can send 90% of the traffic to `v1` and 10% to `v2`:
+
+```yaml
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: payments-service
+spec:
+  host: payments-service
+  subsets:
+    - name: v1
+      labels:
+        version: v1
+    - name: v2
+      labels:
+        version: v2
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: payments-service
+spec:
+  hosts:
+    - payments-service
+  http:
+    - route:
+        - destination:
+            host: payments-service
+            subset: v1
+          weight: 90
+        - destination:
+            host: payments-service
+            subset: v2
+          weight: 10
+```
+
+That is extremely useful for gradual rollouts, A/B tests, and reducing production risk.
+
+## Real-world benefits
+
+### 1. Security with mTLS
+
+The mesh can enforce encryption between services without requiring every team to implement it manually. In large environments, that reduces human error and improves consistency.
+
+### 2. Standardized observability
+
+Instead of spreading instrumentation across every service, the proxy can capture a significant portion of the network data. That helps with distributed tracing, metrics, and troubleshooting.
+
+### 3. Richer traffic control
+
+With Istio, you can apply:
+
+- retries;
+- timeouts;
+- circuit breaking;
+- traffic mirroring;
+- version-based routing;
+- policies per service, namespace, or identity.
+
+### 4. Less infrastructure logic in the code
+
+Your Quarkus application stays cleaner. The service continues to own business rules, while the mesh handles transversal policies.
+
+## Trade-offs and costs
+
+A service mesh is not free. The main costs are:
+
+- **operational complexity**: there are more components to manage;
+- **resource usage**: sidecars consume CPU and memory;
+- **learning curve**: concepts like subsets, gateways, peer authentication, and policies take time;
+- **harder debugging at first**: traffic flows through more layers.
+
+If you have only a few services and limited governance needs, a simpler load balancer and in-app libraries may be enough.
+
+## When it makes sense to use it
+
+Use Envoy and Istio when you have at least some of these requirements:
+
+- multiple teams shipping services independently;
+- a need for mTLS between internal services;
+- compliance or zero-trust requirements;
+- canary, blue/green, or traffic shifting needs;
+- consistent telemetry across the platform;
+- critical internal APIs with high availability.
+
+## When it may not be worth it
+
+You may be better off without a service mesh if:
+
+- your architecture is still small;
+- you want to keep the number of operational parts low;
+- the team is not yet comfortable with Kubernetes security;
+- most of the value is already covered by a simpler gateway or API management layer.
+
+The point is not “use Istio because it exists.” The point is to use it when the governance gain outweighs the operational cost.
+
+## Real-world scenarios where it shines
+
+### Canary release
+
+Send part of the traffic to a new version without redeploying clients.
+
+### Zero-trust security
+
+Even inside the cluster, each service must prove its identity.
+
+### Resilience
+
+Apply timeouts and retries consistently, preventing a cascading failure from taking down the system.
+
+### Egress control
+
+Control centrally where services are allowed to go, including external destinations.
+
+### Production diagnostics
+
+When a service-to-service call becomes slow, proxy traces and metrics help pinpoint the bottleneck.
+
+## Mental model to keep in mind
+
+- **Envoy** is the proxy that executes traffic.
+- **Istio** is the layer that governs that traffic.
+- **Quarkus** stays focused on business logic.
+- **Kubernetes + Istio + Envoy** turn distributed communication into something more predictable, secure, and observable.
+
+## Conclusion
+
+In microservices, service-to-service communication matters as much as the code itself. Envoy handles traffic execution with performance and flexibility. Istio organizes all of it into a service mesh with policies, security, and observability.
+
+If you are building or operating a platform with multiple Quarkus services, this combination can significantly reduce repetitive infrastructure work and unlock advanced features such as mTLS, canary releases, and distributed tracing.
+
+The best way to think about it is this: **do not change the application code to solve every networking problem; let the mesh carry the weight it was built for**.

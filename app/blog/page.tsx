@@ -1,6 +1,6 @@
-import { allPosts } from "contentlayer/generated";
 import SectionContainer from "@/components/SectionContainer";
 import ContentCard from "@/components/shared/ContentCard";
+import { getBlogIndexPosts } from "@/lib/posts";
 
 export const metadata = {
   title: "Blog - Leo",
@@ -8,9 +8,7 @@ export const metadata = {
 };
 
 export default function BlogPage() {
-  const posts = allPosts.sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
+  const posts = getBlogIndexPosts();
 
   return (
     <SectionContainer>

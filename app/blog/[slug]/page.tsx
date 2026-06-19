@@ -1,64 +1,69 @@
-import { allPosts } from "contentlayer/generated";
-import { notFound } from "next/navigation";
-import SectionContainer from "@/components/SectionContainer";
-import MDXContent from "@/components/mdx/MDXContent";
-import BackLink from "@/components/shared/BackLink";
-import TagList from "@/components/shared/TagList";
-import { formatDate } from "@/lib/formatDate";
+import { notFound } from "next/navigation"
+
+import SectionContainer from "@/components/SectionContainer"
+import BlogPostViewer from "@/components/blog/BlogPostViewer"
+import BackLink from "@/components/shared/BackLink"
+import { formatDate } from "@/lib/formatDate"
+import { getBlogPostBundle, getBlogPostSlugs } from "@/lib/posts"
 
 interface PageProps {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ slug: string }>
 }
 
 export async function generateStaticParams() {
-  return allPosts.map((post) => ({
-    slug: post.slug,
-  }));
+  return getBlogPostSlugs()
 }
 
 export async function generateMetadata({ params }: PageProps) {
-  const { slug } = await params;
-  const post = allPosts.find((p) => p.slug === slug);
+  const { slug } = await params
+  const postBundle = getBlogPostBundle(slug)
 
-  if (!post) {
-    return { title: "Post Not Found" };
+  if (!postBundle) {
+    return { title: "Post Not Found" }
   }
 
   return {
-    title: `${post.title} - Leo`,
-    description: post.description,
-  };
+    title: `${postBundle.defaultPost.title} - Leo`,
+    description: postBundle.defaultPost.description,
+  }
 }
 
 export default async function PostPage({ params }: PageProps) {
-  const { slug } = await params;
-  const post = allPosts.find((p) => p.slug === slug);
+  const { slug } = await params
+  const postBundle = getBlogPostBundle(slug)
 
-  if (!post) {
-    notFound();
+  if (!postBundle) {
+    notFound()
   }
+
+  const defaultPost = postBundle.defaultPost
 
   return (
     <SectionContainer size="sm">
       <article className="py-8">
         <BackLink href="/blog" label="Back to blog" />
 
-        <header className="mb-8">
-          <time className="text-sm text-muted-foreground mb-4 block">
-            {formatDate(post.date)}
-          </time>
-
-          <h1 className="text-4xl font-bold mb-4">{post.title}</h1>
-
-          <p className="text-lg text-muted-foreground mb-6">
-            {post.description}
-          </p>
-
-          <TagList tags={post.tags} />
-        </header>
-
-        <MDXContent code={post.body.code} />
+        <BlogPostViewer
+          dateLabels={{
+            en: formatDate(defaultPost.date, "long", "en-US"),
+            "pt-BR": formatDate(defaultPost.date, "long", "pt-BR"),
+          }}
+          tags={defaultPost.tags}
+          english={{
+            title: postBundle.english?.title ?? defaultPost.title,
+            description:
+              postBundle.english?.description ?? defaultPost.description,
+            bodyCode: postBundle.english?.body.code ?? defaultPost.body.code,
+          }}
+          portuguese={{
+            title: postBundle.portuguese?.title ?? defaultPost.title,
+            description:
+              postBundle.portuguese?.description ?? defaultPost.description,
+            bodyCode:
+              postBundle.portuguese?.body.code ?? defaultPost.body.code,
+          }}
+        />
       </article>
     </SectionContainer>
-  );
+  )
 }

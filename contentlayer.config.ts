@@ -52,12 +52,16 @@ export const Post = defineDocumentType(() => ({
     date: { type: "date", required: true },
     tags: { type: "list", of: { type: "string" }, required: true },
     image: { type: "string", required: false },
+    locale: { type: "string", required: false },
     canonical: { type: "string", required: false },
   },
   computedFields: {
     slug: {
       type: "string",
-      resolve: (doc) => doc._raw.flattenedPath.replace("blog/", ""),
+      resolve: (doc) =>
+        doc._raw.flattenedPath
+          .replace("blog/", "")
+          .replace(/\.(en|pt-br)$/, ""),
     },
   },
 }));
