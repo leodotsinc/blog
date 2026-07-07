@@ -6622,10 +6622,10 @@ setprototypeof@~1.2.0:
   resolved "https://registry.npmjs.org/setprototypeof/-/setprototypeof-1.2.0.tgz"
   integrity sha512-E5LDX7Wrp85Kil5bhZv46j8jOeboKq5JMmYM3gVGdGH8xFpPWXUMsNrlODCrkoxMEeNi/XZIwuRvY4XNwYMJpw==
 
-shadcn@^4.12.0:
-  version "4.12.0"
-  resolved "https://registry.yarnpkg.com/shadcn/-/shadcn-4.12.0.tgz#72a5faeec44813d313230a0121d41480a9fa1a18"
-  integrity sha512-o781ieQziCnXH2FKsEqxp1fnbHdbgAPO9inTSPeZ59hQfsZXuMGp3ul8oFSV5KQS4nbUK9b+DrDE6C7OvfKKQQ==
+shadcn@^4.13.0:
+  version "4.13.0"
+  resolved "https://registry.yarnpkg.com/shadcn/-/shadcn-4.13.0.tgz#2934472a03a015c937982ffdfb9e6212b11def47"
+  integrity sha512-5fuJ4jI/GcPeA/iTL4cJivCZuYQGXz/N3bIzyd+Gd/FM6xUCy2MxGG+LaDQuw2cjNy9zGPSFPTEmI048UwPTZA==
   dependencies:
     "@babel/core" "^7.28.0"
     "@babel/parser" "^7.28.0"
