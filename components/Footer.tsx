@@ -7,7 +7,7 @@ import SectionContainer from "@/components/SectionContainer";
 
 export default function Footer() {
   return (
-    <footer>
+    <footer className="site-footer">
       <SectionContainer>
         <div className="mb-0 flex flex-col justify-start space-y-3 py-10">
           <div className="flex flex-col items-center space-y-3 text-sm sm:flex-row sm:justify-between sm:text-base">

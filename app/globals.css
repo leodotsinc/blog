@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/* Route-isolated chrome reset for the standalone AI Assistente landing page. */
+body:has(#v2-page) > div.fixed,
+body:has(#v2-page) > .site-footer {
+  display: none !important;
+}
+
+body:has(#v2-page) > main {
+  padding-top: 0 !important;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
