@@ -13,7 +13,7 @@ export default function PrinciplesSection() {
       className="relative mx-auto w-full max-w-[73rem] scroll-mt-24 px-6 py-28 sm:px-9 xl:px-0"
     >
       <Reveal>
-        <SectionLabel index="01">How I operate</SectionLabel>
+        <SectionLabel index="02">How I operate</SectionLabel>
       </Reveal>
 
       <Reveal delay={0.05}>

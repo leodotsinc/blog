@@ -10,10 +10,9 @@ import {
   useTransform,
 } from "framer-motion";
 import { useTheme } from "next-themes";
-import { ArrowDown, ArrowUpRight, Mail } from "lucide-react";
+import { ArrowDown, ArrowUpRight } from "lucide-react";
 
 import { hero, impact } from "@/data/home";
-import { siteMetadata } from "@/data/siteMetadata";
 import Magnetic from "./Magnetic";
 import ScrambleText from "./ScrambleText";
 import SplitText from "./SplitText";
@@ -219,27 +218,27 @@ export default function Hero() {
         >
           <Magnetic strength={0.32}>
             <Link
-              href="#work"
+              href="#architecture-lab"
               data-cursor="view"
               className="group relative inline-flex items-center gap-3 overflow-hidden rounded-full bg-foreground px-7 py-3.5 text-sm font-semibold text-background transition-transform duration-300"
             >
               <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-glow-2 via-glow-1 to-glow-3 transition-transform duration-500 group-hover:translate-x-0" />
-              <span className="relative">Explore the work</span>
+              <span className="relative">Try to break it</span>
               <ArrowDown className="relative h-4 w-4 transition-transform duration-300 group-hover:translate-y-0.5" />
             </Link>
           </Magnetic>
 
           <Magnetic strength={0.28}>
             <Link
-              href={`mailto:${siteMetadata.email}`}
+              href="#work"
               className="group inline-flex items-center gap-2 rounded-full border border-border px-6 py-3.5 text-sm font-medium text-foreground transition-colors duration-300 hover:border-glow-1"
             >
-              <Mail className="h-4 w-4" />
-              Say hi
+              Selected work
               <ArrowUpRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
             </Link>
           </Magnetic>
         </motion.div>
+        <p className="mt-4 font-mono text-[10px] tracking-wide text-muted-foreground">An interactive experiment in designing for failure.</p>
 
       </motion.div>
 

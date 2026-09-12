@@ -1,5 +1,6 @@
 import { allPosts, allProjects } from "contentlayer/generated";
 
+import ArchitectureLab from "@/components/home/ArchitectureLab";
 import BentoSection from "@/components/home/BentoSection";
 import ContactSection from "@/components/home/ContactSection";
 import PrinciplesSection from "@/components/home/PrinciplesSection";
@@ -47,6 +48,7 @@ export default function Home() {
       <CustomCursor />
 
       <Hero />
+      <ArchitectureLab />
       <PrinciplesSection />
       <BentoSection />
 

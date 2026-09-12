@@ -19,7 +19,7 @@ export const hero = {
   ],
   current: { role: "Tech Lead", company: "Getnet (Santander)" },
   lede:
-    "Nine years designing systems that are not allowed to fail — air traffic control at Embraer, payment rails at Fiserv and Getnet. I lead a squad at Santander's payments arm, own the architecture decisions behind it, and hold a postgraduate degree in Solutions Architecture.",
+    "From air traffic control to payment rails. I design the architecture, lead the team, and make the hard parts hold together.",
 } as const;
 
 export const impact = [
