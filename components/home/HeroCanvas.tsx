@@ -370,7 +370,7 @@ export default function HeroCanvas({
   return (
     <Canvas
       frameloop={active ? "always" : "never"}
-      dpr={[1, low ? 1.2 : 1.5]}
+      dpr={[1, low ? 1 : 1.25]}
       gl={{
         antialias: !low,
         alpha: true,
@@ -379,8 +379,8 @@ export default function HeroCanvas({
       camera={{ position: [0, 0, 5.1], fov: 38 }}
       onCreated={({ gl }) => gl.setClearAlpha(0)}
     >
-      <Blob theme={theme} detail={low ? 12 : 24} reduced={reduced} />
-      <Dust count={low ? 700 : 1800} theme={theme} reduced={reduced} />
+      <Blob theme={theme} detail={low ? 8 : 12} reduced={reduced} />
+      <Dust count={low ? 450 : 900} theme={theme} reduced={reduced} />
       <CameraRig reduced={reduced} />
     </Canvas>
   );

@@ -41,14 +41,19 @@ function useLocalTime(timeZone: string) {
   return time;
 }
 
+function LocalClock({ timeZone }: { timeZone: string }) {
+  const time = useLocalTime(timeZone);
+  return <span className="tabular-nums text-foreground/80">{time ?? "--:--:--"}</span>;
+}
+
 export default function Hero() {
   const section = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(true);
-  const [mounted, setMounted] = useState(false);
-  const [lowPower, setLowPower] = useState(false);
+  const [enhanced, setEnhanced] = useState(false);
+  const [pageVisible, setPageVisible] = useState(true);
   const { resolvedTheme } = useTheme();
   const reduced = useReducedMotion();
-  const clock = useLocalTime(hero.timezone);
+  const animated = enhanced && !reduced;
 
   const { scrollYProgress } = useScroll({
     target: section,
@@ -59,12 +64,19 @@ export default function Hero() {
   const canvasOpacity = useTransform(scrollYProgress, [0, 0.9], [1, 0.15]);
 
   useEffect(() => {
-    setMounted(true);
-    const cores =
-      typeof navigator !== "undefined" ? navigator.hardwareConcurrency ?? 8 : 8;
-    setLowPower(
-      window.matchMedia("(max-width: 820px)").matches || cores <= 4
+    const media = window.matchMedia(
+      "(min-width: 1024px) and (pointer: fine) and (prefers-reduced-motion: no-preference)"
     );
+    const update = () => setEnhanced(media.matches && (navigator.hardwareConcurrency ?? 8) > 4);
+    const visibility = () => setPageVisible(document.visibilityState === "visible");
+    update();
+    visibility();
+    media.addEventListener("change", update);
+    document.addEventListener("visibilitychange", visibility);
+    return () => {
+      media.removeEventListener("change", update);
+      document.removeEventListener("visibilitychange", visibility);
+    };
   }, []);
 
   // stop rendering WebGL once the hero has scrolled away
@@ -84,48 +96,23 @@ export default function Hero() {
   return (
     <div
       ref={section}
-      className="relative isolate grain flex min-h-[100svh] w-full overflow-hidden"
+      data-enhanced={animated}
+      className="hero relative isolate grain flex min-h-[100svh] w-full flex-col overflow-hidden"
     >
-      {/* ambient aurora behind the canvas */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
-        <div
-          className="absolute left-[8%] top-[12%] h-[46vmax] w-[46vmax] rounded-full opacity-50 blur-[90px]"
-          style={{
-            background:
-              "radial-gradient(circle, color-mix(in oklab, var(--glow-1) 55%, transparent), transparent 68%)",
-            animation: reduced ? undefined : "aurora-drift 22s ease-in-out infinite",
-          }}
-        />
-        <div
-          className="absolute right-[4%] top-[38%] h-[38vmax] w-[38vmax] rounded-full opacity-40 blur-[100px]"
-          style={{
-            background:
-              "radial-gradient(circle, color-mix(in oklab, var(--glow-3) 50%, transparent), transparent 68%)",
-            animation: reduced
-              ? undefined
-              : "aurora-drift 28s ease-in-out -8s infinite reverse",
-          }}
-        />
-      </div>
+      <div aria-hidden className="hero-ambient pointer-events-none absolute inset-0 -z-10" />
 
-      {/* the 3d scene */}
-      <motion.div className="absolute inset-0 -z-[5]" style={{ opacity: canvasOpacity }}>
+      {/* Touch and reduced-motion devices keep a static version of the artwork. */}
+      {animated ? (
         <motion.div
-          className="h-full w-full"
-          initial={{ opacity: 0, scale: 1.08 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1.8, ease: [0.16, 1, 0.3, 1] }}
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-[5]"
+          style={{ opacity: canvasOpacity }}
         >
-          {mounted && (
-            <HeroCanvas
-              theme={theme}
-              active={visible}
-              reduced={Boolean(reduced)}
-              quality={lowPower ? "low" : "high"}
-            />
-          )}
+          <HeroCanvas theme={theme} active={visible && pageVisible} />
         </motion.div>
-      </motion.div>
+      ) : (
+        <div aria-hidden className="hero-orb pointer-events-none absolute -z-[5]" />
+      )}
 
       {/* legibility scrim + bottom fade into the next section */}
       <div
@@ -153,35 +140,33 @@ export default function Hero() {
       </div>
 
       <motion.div
-        style={{ y: reduced ? 0 : contentY, opacity: contentOpacity }}
-        className="relative mx-auto flex w-full max-w-[73rem] flex-col justify-center px-6 pb-16 pt-28 sm:px-9 xl:px-0"
+        style={{ y: animated ? contentY : 0, opacity: animated ? contentOpacity : 1 }}
+        className="relative mx-auto flex min-w-0 w-full max-w-[73rem] flex-1 flex-col justify-center px-6 pb-16 pt-28 sm:px-9 xl:px-0"
       >
         {/* status chip */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-8 flex w-fit items-center gap-3 rounded-full border border-border/70 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground backdrop-blur-md"
+          className="mb-8 flex max-w-full w-fit flex-wrap items-center gap-x-3 gap-y-1 rounded-full border border-border/70 bg-background/60 px-4 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground sm:text-[11px] sm:tracking-[0.18em]"
         >
-          <span className="relative flex h-2 w-2">
+          <span className="relative flex h-2 w-2 shrink-0">
             <span
               className="absolute inline-flex h-full w-full rounded-full bg-emerald-400"
               style={{
-                animation: reduced ? undefined : "pulse-dot 2s ease-in-out infinite",
+                animation: animated ? "pulse-dot 2s ease-in-out infinite" : undefined,
               }}
             />
           </span>
-          {hero.location}
+          <span className="whitespace-nowrap">{hero.location}</span>
           <span className="text-border">/</span>
-          <span className="tabular-nums text-foreground/80">
-            {clock ?? "--:--:--"}
-          </span>
+          <LocalClock timeZone={hero.timezone} />
         </motion.div>
 
         {/* name */}
         <h1 className="font-sans text-[clamp(2.6rem,10.5vw,8.5rem)] font-extrabold leading-[0.88] tracking-[-0.045em]">
           <span className="block">
-            <SplitText text="LEONARDO" delay={0.25} stagger={0.038} />
+            <SplitText text="LEONARDO" className="flex-nowrap whitespace-nowrap" delay={0.25} stagger={0.038} />
           </span>
           <span className="flex items-baseline overflow-hidden pb-[0.06em]">
             <motion.span
@@ -211,7 +196,7 @@ export default function Hero() {
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-3 font-mono text-sm uppercase tracking-[0.2em] text-foreground sm:text-base">
               <span className="text-glow-1">{"//"}</span>
-              <ScrambleText words={hero.roles} className="min-w-[15ch]" />
+              <ScrambleText words={hero.roles} active={Boolean(animated && visible && pageVisible)} className="min-w-0" />
             </div>
             <p className="font-mono text-xs tracking-tight text-muted-foreground">
               currently{" "}

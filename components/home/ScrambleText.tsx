@@ -13,10 +13,12 @@ export default function ScrambleText({
   words,
   interval = 2800,
   className,
+  active = true,
 }: {
   words: readonly string[];
   interval?: number;
   className?: string;
+  active?: boolean;
 }) {
   const [index, setIndex] = useState(0);
   const [display, setDisplay] = useState(words[0] ?? "");
@@ -24,18 +26,18 @@ export default function ScrambleText({
   const reduced = useReducedMotion();
 
   useEffect(() => {
-    if (words.length < 2) return;
+    if (!active || reduced || words.length < 2) return;
     const id = setInterval(
       () => setIndex((i) => (i + 1) % words.length),
       interval
     );
     return () => clearInterval(id);
-  }, [words, interval]);
+  }, [words, interval, active, reduced]);
 
   useEffect(() => {
-    const to = words[index] ?? "";
+    const to = words[active ? index : 0] ?? "";
 
-    if (reduced) {
+    if (!active || reduced) {
       current.current = to;
       setDisplay(to);
       return;
@@ -84,10 +86,10 @@ export default function ScrambleText({
 
     tick();
     return () => cancelAnimationFrame(raf);
-  }, [index, words, reduced]);
+  }, [index, words, reduced, active]);
 
   return (
-    <span className={cn("inline-block", className)} aria-label={words[index]}>
+    <span className={cn("inline-block", className)} aria-label={words[active ? index : 0]}>
       <span aria-hidden>{display}</span>
     </span>
   );

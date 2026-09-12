@@ -67,6 +67,7 @@ export default function WritingSection({ posts }: { posts: PostItem[] }) {
                   </span>
                   <time dateTime={featured.date}>
                     {new Date(featured.date).toLocaleDateString("en-US", {
+                      timeZone: "UTC",
                       year: "numeric",
                       month: "long",
                       day: "numeric",
@@ -110,6 +111,7 @@ export default function WritingSection({ posts }: { posts: PostItem[] }) {
                 >
                   <time className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                     {new Date(post.date).toLocaleDateString("en-US", {
+                      timeZone: "UTC",
                       year: "numeric",
                       month: "short",
                     })}
