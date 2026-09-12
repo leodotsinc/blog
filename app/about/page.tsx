@@ -27,7 +27,7 @@ export default function AboutPage() {
             />
             <h2 className="text-2xl font-bold">Leonardo Torres</h2>
             <p className="text-lg text-muted-foreground">
-              Tech Lead @ Santander
+              Tech Lead @ Getnet (Santander)
             </p>
             <div className="flex justify-center space-x-4 mt-4">
               <SocialIcon kind="github" href={siteMetadata.github} size={6} />
@@ -55,7 +55,7 @@ export default function AboutPage() {
                 degree in Information Systems.
               </p>
               <p className="text-base text-foreground">
-                Currently, I&apos;m at Santander in Brazil, where I focus on
+                Currently, I&apos;m a Tech Lead at Getnet, Santander&apos;s payments company, where I focus on
                 integrating cutting-edge AI features and developing robust
                 backend systems. Whether I&apos;m coding or working with
                 cross-functional teams, my goal is to ensure our products not
