@@ -45,7 +45,7 @@ export default function TiltCard({
     <div className={cn("relative", className)} style={{ perspective: 1100 }}>
       <motion.div
         ref={ref}
-        className="group/tilt relative h-full w-full rounded-2xl border border-border/60 bg-card/60 backdrop-blur-sm transition-colors duration-300 hover:border-glow-1/45"
+        className="group/tilt relative h-full w-full overflow-hidden rounded-2xl border border-border/60 bg-card/60 backdrop-blur-sm transition-colors duration-300 hover:border-glow-1/45"
         style={{
           rotateX: reduced ? 0 : rotateX,
           rotateY: reduced ? 0 : rotateY,
@@ -74,8 +74,13 @@ export default function TiltCard({
         {spotlight && (
           <motion.div
             aria-hidden
-            className="pointer-events-none absolute inset-0 rounded-2xl"
-            style={{ background: glow }}
+            className="pointer-events-none absolute left-0 top-0 h-[420px] w-[420px] rounded-full"
+            style={{
+              x: glowX,
+              y: glowY,
+              background:
+                "radial-gradient(circle, color-mix(in oklab, var(--glow-1) 24%, transparent), transparent 70%)",
+            }}
             animate={{ opacity: hovered ? 1 : 0 }}
             transition={{ duration: 0.3 }}
           />
