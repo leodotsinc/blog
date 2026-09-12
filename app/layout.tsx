@@ -3,7 +3,8 @@ import { Montserrat } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import Footer from "@/components/Footer";
-import Header from "@/components/Header";
+import SiteHeader from "@/components/nav/SiteHeader";
+import { buildCommandIndex } from "@/lib/commandIndex";
 
 import Script from "next/script";
 
@@ -33,7 +34,7 @@ export default function RootLayout({
           defaultTheme="system"
           enableSystem
         >
-          <Header />
+          <SiteHeader commands={buildCommandIndex()} />
           <main className="flex-grow pt-20">{children}</main>
           <Footer />
           {process.env.NODE_ENV === 'production' && (
