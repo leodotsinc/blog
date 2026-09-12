@@ -63,15 +63,20 @@ const json = (payload: NowPlayingPayload, status = 200) =>
   });
 
 async function readRecentlyPlayed(): Promise<NowPlayingPayload> {
-  const response = await getRecentlyPlayed();
+  const result = await getRecentlyPlayed();
 
-  if (!response) return { isPlaying: false, reason: "auth_failed" };
+  if (!result.ok) return { isPlaying: false, reason: result.error };
+
+  const { response } = result;
 
   if (!response.ok) {
     console.error(`[spotify] recently-played failed: ${response.status}`);
     return {
       isPlaying: false,
-      reason: response.status === 401 ? "auth_failed" : "request_failed",
+      reason:
+        response.status === 401 || response.status === 403
+          ? "api_unauthorized"
+          : "request_failed",
     };
   }
 
@@ -93,15 +98,17 @@ export async function GET() {
     return json({ isPlaying: false, reason: "not_configured" });
   }
 
-  let response = await getNowPlaying();
+  let result = await getNowPlaying();
 
   /* a stale cached token surfaces as a single 401 — drop it and try again */
-  if (response?.status === 401) {
+  if (result.ok && result.response.status === 401) {
     invalidateToken();
-    response = await getNowPlaying();
+    result = await getNowPlaying();
   }
 
-  if (!response) return json({ isPlaying: false, reason: "auth_failed" });
+  if (!result.ok) return json({ isPlaying: false, reason: result.error });
+
+  const { response } = result;
 
   /* 204 means the player is idle, not that something broke */
   if (response.status === 204) return json(await readRecentlyPlayed());
@@ -109,7 +116,7 @@ export async function GET() {
   if (!response.ok) {
     console.error(`[spotify] currently-playing failed: ${response.status}`);
     if (response.status === 401 || response.status === 403) {
-      return json({ isPlaying: false, reason: "auth_failed" });
+      return json({ isPlaying: false, reason: "api_unauthorized" });
     }
     return json(await readRecentlyPlayed());
   }

@@ -19,21 +19,26 @@ const RECENTLY_PLAYED_ENDPOINT =
 
 export type SpotifyFailure =
   | "not_configured"
-  | "auth_failed"
+  /** Spotify refused the refresh-token exchange: bad client creds or a revoked token. */
+  | "token_rejected"
+  /** Token is valid but the API said no: almost always a missing scope. */
+  | "api_unauthorized"
   | "request_failed"
   | "nothing_playing"
   | "no_history";
+
+export type TokenResult =
+  | { ok: true; token: string }
+  | { ok: false; error: "token_rejected" | "request_failed" };
 
 export const isConfigured = () =>
   Boolean(CLIENT_ID && CLIENT_SECRET && REFRESH_TOKEN);
 
 let cachedToken: { value: string; expiresAt: number } | null = null;
 
-async function getAccessToken(): Promise<string | null> {
-  if (!isConfigured()) return null;
-
+async function getAccessToken(): Promise<TokenResult> {
   if (cachedToken && Date.now() < cachedToken.expiresAt) {
-    return cachedToken.value;
+    return { ok: true, token: cachedToken.value };
   }
 
   const basic = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString("base64");
@@ -54,7 +59,7 @@ async function getAccessToken(): Promise<string | null> {
     });
   } catch (error) {
     console.error("[spotify] token request threw", error);
-    return null;
+    return { ok: false, error: "request_failed" };
   }
 
   if (!response.ok) {
@@ -65,7 +70,7 @@ async function getAccessToken(): Promise<string | null> {
       `[spotify] token exchange failed: ${response.status} ${body.slice(0, 200)}`
     );
     cachedToken = null;
-    return null;
+    return { ok: false, error: "token_rejected" };
   }
 
   const data = (await response.json()) as {
@@ -75,7 +80,7 @@ async function getAccessToken(): Promise<string | null> {
 
   if (!data.access_token) {
     console.error("[spotify] token response had no access_token");
-    return null;
+    return { ok: false, error: "token_rejected" };
   }
 
   cachedToken = {
@@ -84,21 +89,25 @@ async function getAccessToken(): Promise<string | null> {
     expiresAt: Date.now() + ((data.expires_in ?? 3600) - 60) * 1000,
   };
 
-  return cachedToken.value;
+  return { ok: true, token: cachedToken.value };
 }
 
-async function authorizedGet(url: string) {
+export type FetchResult =
+  | { ok: true; response: Response }
+  | { ok: false; error: "token_rejected" | "request_failed" };
+
+async function authorizedGet(url: string): Promise<FetchResult> {
   const token = await getAccessToken();
-  if (!token) return null;
+  if (!token.ok) return token;
 
   try {
-    return await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
+    return { ok: true, response: await fetch(url, {
+      headers: { Authorization: `Bearer ${token.token}` },
       cache: "no-store",
-    });
+    }) };
   } catch (error) {
     console.error("[spotify] request threw", error);
-    return null;
+    return { ok: false, error: "request_failed" };
   }
 }
 

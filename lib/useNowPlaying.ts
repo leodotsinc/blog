@@ -12,7 +12,8 @@ export type NowPlaying = {
   isPodcast?: boolean;
   reason?:
     | "not_configured"
-    | "auth_failed"
+    | "token_rejected"
+    | "api_unauthorized"
     | "request_failed"
     | "nothing_playing"
     | "no_history";
@@ -88,7 +89,8 @@ export function describeNowPlaying(data: NowPlaying | null) {
   switch (data.reason) {
     case "not_configured":
       return { label: "Spotify", detail: "Not connected", live: false };
-    case "auth_failed":
+    case "token_rejected":
+    case "api_unauthorized":
       return { label: "Spotify", detail: "Reconnect needed", live: false };
     case "no_history":
       return { label: "Spotify", detail: "No recent tracks", live: false };
