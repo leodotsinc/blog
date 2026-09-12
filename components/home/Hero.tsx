@@ -54,8 +54,8 @@ export default function Hero() {
     target: section,
     offset: ["start start", "end start"],
   });
-  const contentY = useTransform(scrollYProgress, [0, 1], ["0%", "34%"]);
-  const contentOpacity = useTransform(scrollYProgress, [0, 0.65], [1, 0]);
+  const contentY = useTransform(scrollYProgress, [0, 1], ["0%", "12%"]);
+  const contentOpacity = useTransform(scrollYProgress, [0, 0.92], [1, 0]);
   const canvasOpacity = useTransform(scrollYProgress, [0, 0.9], [1, 0.15]);
 
   useEffect(() => {
@@ -137,31 +137,8 @@ export default function Hero() {
         className="pointer-events-none absolute inset-x-0 bottom-0 -z-[4] h-48 bg-gradient-to-t from-background to-transparent"
       />
 
-      {/* left rail — socials */}
-      <div className="pointer-events-none absolute bottom-0 left-6 hidden lg:flex lg:flex-col lg:items-center lg:gap-6">
-        <div className="pointer-events-auto flex flex-col gap-4 font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground [writing-mode:vertical-rl]">
-          <a
-            href={siteMetadata.github}
-            target="_blank"
-            rel="noreferrer"
-            className="transition-colors hover:text-foreground"
-          >
-            GitHub
-          </a>
-          <a
-            href={siteMetadata.linkedin}
-            target="_blank"
-            rel="noreferrer"
-            className="transition-colors hover:text-foreground"
-          >
-            LinkedIn
-          </a>
-        </div>
-        <div className="h-24 w-px bg-gradient-to-b from-border to-transparent" />
-      </div>
-
       {/* right rail — scroll cue */}
-      <div className="pointer-events-none absolute bottom-0 right-6 hidden flex-col items-center gap-4 lg:flex">
+      <div className="pointer-events-none absolute bottom-10 right-6 hidden flex-col items-center gap-4 lg:flex">
         <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground [writing-mode:vertical-rl]">
           Scroll
         </span>
@@ -279,25 +256,28 @@ export default function Hero() {
           </Magnetic>
         </motion.div>
 
-        {/* impact strip */}
-        <motion.dl
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1, delay: 1.25 }}
-          className="mt-16 grid grid-cols-2 gap-x-6 gap-y-6 border-t border-border/60 pt-8 sm:grid-cols-4"
-        >
-          {impact.map((item) => (
-            <div key={item.label} className="group" title={item.hint}>
-              <dt className="font-sans text-2xl font-bold tabular-nums text-foreground transition-colors duration-300 group-hover:text-glow-1 sm:text-3xl">
-                {item.value}
-              </dt>
-              <dd className="mt-1 font-mono text-[10px] uppercase leading-relaxed tracking-[0.14em] text-muted-foreground">
-                {item.label}
-              </dd>
-            </div>
-          ))}
-        </motion.dl>
       </motion.div>
+
+      {/* Impact strip: deliberately outside the parallax + fade wrapper. Inside
+          it, the numbers drifted down as you scrolled toward them and were
+          already faded out by the time the stack band reached them. */}
+      <motion.dl
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.9, delay: 1.25, ease: [0.16, 1, 0.3, 1] }}
+        className="relative mx-auto grid w-full max-w-[73rem] grid-cols-2 gap-x-6 gap-y-6 border-t border-border/60 px-6 pb-12 pt-8 sm:grid-cols-4 sm:px-9 xl:px-0"
+      >
+        {impact.map((item) => (
+          <div key={item.label} className="group" title={item.hint}>
+            <dt className="font-sans text-2xl font-bold tabular-nums text-foreground transition-colors duration-300 group-hover:text-glow-1 sm:text-3xl">
+              {item.value}
+            </dt>
+            <dd className="mt-1 font-mono text-[10px] uppercase leading-relaxed tracking-[0.14em] text-muted-foreground">
+              {item.label}
+            </dd>
+          </div>
+        ))}
+      </motion.dl>
     </div>
   );
 }

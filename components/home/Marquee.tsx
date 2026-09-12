@@ -10,7 +10,7 @@ import {
   useTransform,
   useVelocity,
 } from "framer-motion";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 const wrap = (min: number, max: number, value: number) => {
@@ -50,9 +50,24 @@ export default function Marquee({
   });
 
   const direction = useRef(1);
+  const container = useRef<HTMLDivElement>(null);
+  const [onScreen, setOnScreen] = useState(true);
+
+  /* the band used to keep a rAF loop and two springs alive for the whole
+     session, including while it sat far outside the viewport */
+  useEffect(() => {
+    const node = container.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setOnScreen(entry.isIntersecting),
+      { rootMargin: "200px 0px" }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   useAnimationFrame((_, delta) => {
-    if (reduced) return;
+    if (reduced || !onScreen) return;
     let moveBy = direction.current * baseVelocity * (delta / 1000);
 
     const factor = velocityFactor.get();
@@ -80,6 +95,7 @@ export default function Marquee({
 
   return (
     <motion.div
+      ref={container}
       className={cn("mask-x overflow-hidden whitespace-nowrap", className)}
       style={{ skewX: reduced ? 0 : skew }}
       aria-hidden

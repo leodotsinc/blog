@@ -2,7 +2,6 @@
 
 import {
   motion,
-  useMotionTemplate,
   useMotionValue,
   useReducedMotion,
   useSpring,
@@ -30,13 +29,17 @@ export default function TiltCard({
 
   const rx = useMotionValue(0);
   const ry = useMotionValue(0);
-  const mx = useMotionValue(50);
-  const my = useMotionValue(50);
+  const mx = useMotionValue(0);
+  const my = useMotionValue(0);
 
   const rotateX = useSpring(rx, { stiffness: 200, damping: 20, mass: 0.4 });
   const rotateY = useSpring(ry, { stiffness: 200, damping: 20, mass: 0.4 });
 
-  const glow = useMotionTemplate`radial-gradient(420px circle at ${mx}% ${my}%, color-mix(in oklab, var(--glow-1) 26%, transparent), transparent 62%)`;
+  /* The spotlight used to be a background-image rebuilt on every pointer
+     move, which repaints the whole card. A fixed-size layer translated into
+     place is pure compositing instead. */
+  const glowX = useSpring(mx, { stiffness: 260, damping: 30, mass: 0.4 });
+  const glowY = useSpring(my, { stiffness: 260, damping: 30, mass: 0.4 });
 
   return (
     <div className={cn("relative", className)} style={{ perspective: 1100 }}>
@@ -56,8 +59,8 @@ export default function TiltCard({
           if (!rect) return;
           const px = (event.clientX - rect.left) / rect.width;
           const py = (event.clientY - rect.top) / rect.height;
-          mx.set(px * 100);
-          my.set(py * 100);
+          mx.set(event.clientX - rect.left - 210);
+          my.set(event.clientY - rect.top - 210);
           if (reduced || event.pointerType === "touch") return;
           rx.set((0.5 - py) * intensity * 2);
           ry.set((px - 0.5) * intensity * 2);

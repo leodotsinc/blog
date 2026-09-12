@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import {
   blobFragment,
@@ -322,11 +322,18 @@ function CameraRig({ reduced }: { reduced: boolean }) {
   const { camera } = useThree();
   const scroll = useRef(0);
 
+  /* fed by a passive listener instead of reading scrollY inside the frame loop */
+  useEffect(() => {
+    const read = () => {
+      scroll.current = Math.min(window.scrollY / window.innerHeight, 1);
+    };
+    read();
+    window.addEventListener("scroll", read, { passive: true });
+    return () => window.removeEventListener("scroll", read);
+  }, []);
+
   useFrame((state, delta) => {
     const d = Math.min(delta, 0.05);
-    if (typeof window !== "undefined") {
-      scroll.current = Math.min(window.scrollY / window.innerHeight, 1);
-    }
 
     const px = reduced ? 0 : state.pointer.x;
     const py = reduced ? 0 : state.pointer.y;
@@ -363,7 +370,7 @@ export default function HeroCanvas({
   return (
     <Canvas
       frameloop={active ? "always" : "never"}
-      dpr={[1, low ? 1.4 : 1.9]}
+      dpr={[1, low ? 1.2 : 1.5]}
       gl={{
         antialias: !low,
         alpha: true,
@@ -373,7 +380,7 @@ export default function HeroCanvas({
       onCreated={({ gl }) => gl.setClearAlpha(0)}
     >
       <Blob theme={theme} detail={low ? 12 : 24} reduced={reduced} />
-      <Dust count={low ? 900 : 2600} theme={theme} reduced={reduced} />
+      <Dust count={low ? 700 : 1800} theme={theme} reduced={reduced} />
       <CameraRig reduced={reduced} />
     </Canvas>
   );

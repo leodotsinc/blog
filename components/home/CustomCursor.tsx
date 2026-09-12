@@ -51,7 +51,8 @@ export default function CustomCursor() {
   if (!enabled) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[100] hidden mix-blend-difference md:block">
+    {/* the blend lives on the two small marks, not on a full-viewport layer */}
+    <div className="pointer-events-none fixed inset-0 z-[100] hidden md:block">
       <motion.div className="absolute left-0 top-0" style={{ x, y }}>
         <span className="block h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white" />
       </motion.div>

@@ -25,7 +25,7 @@ export default function WritingSection({ posts }: { posts: PostItem[] }) {
       className="relative mx-auto w-full max-w-[73rem] scroll-mt-24 px-6 py-28 sm:px-9 xl:px-0"
     >
       <Reveal>
-        <SectionLabel index="03">From the notebook</SectionLabel>
+        <SectionLabel index="04">From the notebook</SectionLabel>
       </Reveal>
 
       <Reveal delay={0.05}>

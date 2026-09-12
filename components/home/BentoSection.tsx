@@ -20,7 +20,7 @@ export default function BentoSection() {
       className="relative mx-auto w-full max-w-[73rem] px-6 py-28 sm:px-9 xl:px-0"
     >
       <Reveal>
-        <SectionLabel index="01">The human behind the commits</SectionLabel>
+        <SectionLabel index="02">The human behind the commits</SectionLabel>
       </Reveal>
 
       <Reveal delay={0.05}>

@@ -45,7 +45,7 @@ export default function ContactSection() {
       />
 
       <Reveal>
-        <SectionLabel index="05">Say hi</SectionLabel>
+        <SectionLabel index="06">Say hi</SectionLabel>
       </Reveal>
 
       <Reveal delay={0.05}>

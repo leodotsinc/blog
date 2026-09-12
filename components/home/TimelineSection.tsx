@@ -22,7 +22,7 @@ export default function TimelineSection() {
   return (
     <section className="relative mx-auto w-full max-w-[73rem] px-6 py-28 sm:px-9 xl:px-0">
       <Reveal>
-        <SectionLabel index="04">Trajectory</SectionLabel>
+        <SectionLabel index="05">Trajectory</SectionLabel>
       </Reveal>
 
       <Reveal delay={0.05}>

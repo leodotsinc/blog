@@ -22,15 +22,13 @@ export default function SiteHeader({ commands }: { commands: CommandItem[] }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [hovered, setHovered] = useState<string | null>(null);
   const [compact, setCompact] = useState(false);
-  const [hidden, setHidden] = useState(false);
 
   const { scrollY } = useScroll();
 
+  /* the bar stays put at every scroll position — it only shrinks into a
+     discreet pod so it stops competing with the page */
   useMotionValueEvent(scrollY, "change", (latest) => {
-    const previous = scrollY.getPrevious() ?? 0;
     setCompact(latest > 24);
-    /* only hide once past the hero-ish fold, and never while a layer is open */
-    setHidden(latest > 320 && latest > previous && !menuOpen && !paletteOpen);
   });
 
   const links = headerNavLinks.filter((link) => !link.hidden);
@@ -66,11 +64,6 @@ export default function SiteHeader({ commands }: { commands: CommandItem[] }) {
     <div className="fixed inset-x-0 top-0 z-50 px-4 pt-4 sm:px-6">
       <motion.header
         initial={false}
-        animate={{
-          y: hidden ? -96 : 0,
-          opacity: hidden ? 0 : 1,
-        }}
-        transition={{ duration: 0.45, ease: EASE }}
         /* lifted above the overlay while it is open so the toggle stays
            reachable and can morph into the close button */
         style={{ zIndex: menuOpen ? 62 : 1 }}
@@ -79,11 +72,14 @@ export default function SiteHeader({ commands }: { commands: CommandItem[] }) {
         <motion.div
           initial={false}
           animate={{
-            maxWidth: compact ? 640 : 1168,
-            paddingLeft: compact ? 10 : 18,
-            paddingRight: compact ? 10 : 18,
+            maxWidth: compact ? 208 : 1168,
+            paddingLeft: compact ? 8 : 18,
+            paddingRight: compact ? 8 : 18,
           }}
           transition={{ duration: 0.55, ease: EASE }}
+          /* max-width and padding are layout properties, so the morph reflows
+             every frame — containment keeps that work inside the header */
+          style={{ contain: "layout style" }}
           className={cn(
             "mx-auto flex h-14 items-center justify-between rounded-full border transition-colors duration-500",
             compact || menuOpen
@@ -113,9 +109,12 @@ export default function SiteHeader({ commands }: { commands: CommandItem[] }) {
             </span>
           </Link>
 
-          {/* inline nav */}
-          <nav
-            className="hidden items-center md:flex"
+          {/* inline nav — collapses to zero width in the compact pod */}
+          <motion.nav
+            initial={false}
+            animate={{ maxWidth: compact ? 0 : 520, opacity: compact ? 0 : 1 }}
+            transition={{ duration: 0.45, ease: EASE }}
+            className="hidden items-center overflow-hidden md:flex"
             onMouseLeave={() => setHovered(null)}
             aria-label="Primary"
           >
@@ -147,22 +146,25 @@ export default function SiteHeader({ commands }: { commands: CommandItem[] }) {
                 </Link>
               );
             })}
-          </nav>
+          </motion.nav>
 
           {/* actions */}
           <div className="flex shrink-0 items-center gap-1">
-            <button
+            <motion.button
               type="button"
               onClick={() => setPaletteOpen(true)}
               aria-label="Search"
-              className="hidden items-center gap-2 rounded-full border border-border/60 py-1.5 pl-3 pr-2 text-muted-foreground transition-colors hover:border-glow-1/50 hover:text-foreground lg:flex"
+              initial={false}
+              animate={{ maxWidth: compact ? 0 : 150, opacity: compact ? 0 : 1 }}
+              transition={{ duration: 0.45, ease: EASE }}
+              className="hidden items-center gap-2 overflow-hidden rounded-full border border-border/60 py-1.5 pl-3 pr-2 text-muted-foreground transition-colors hover:border-glow-1/50 hover:text-foreground lg:flex"
             >
               <Search className="h-3.5 w-3.5" />
               <span className="text-xs">Search</span>
               <kbd className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px]">
                 ⌘K
               </kbd>
-            </button>
+            </motion.button>
 
             <ThemeSwitcher />
 

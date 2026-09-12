@@ -13,20 +13,59 @@ export const hero = {
   roles: [
     "Tech Lead",
     "Solutions Architect",
-    "Backend Engineer",
-    "Cloud Native Nerd",
-    "AI Tinkerer",
+    "Distributed Systems",
+    "Platform & Cloud",
+    "Engineering Mentor",
   ],
   current: { role: "Tech Lead", company: "Getnet (Santander)" },
   lede:
-    "I've written software for air traffic control and financial rails — the kind that is not allowed to fall over. Today I lead a squad at Getnet, Santander's payments arm, building platform services on Kubernetes and wiring AI into the parts that actually deserve it.",
+    "Nine years designing systems that are not allowed to fail — air traffic control at Embraer, payment rails at Fiserv and Getnet. I lead a squad at Santander's payments arm, own the architecture decisions behind it, and hold a postgraduate degree in Solutions Architecture.",
 } as const;
 
 export const impact = [
-  { value: "2017", label: "shipping since", hint: "First production commit" },
-  { value: "99.9%", label: "uptime", hint: "Cloud-native payments platform" },
-  { value: "40%", label: "faster incident response", hint: "Splunk + Apigee observability" },
-  { value: "30%", label: "less dev time", hint: "Micro-frontend architecture" },
+  { value: "9+", label: "years in production", hint: "Shipping since 2017" },
+  {
+    value: "2",
+    label: "regulated domains",
+    hint: "Aviation safety systems and payment rails",
+  },
+  { value: "99.9%", label: "platform uptime", hint: "Cloud-native payments platform" },
+  {
+    value: "40%",
+    label: "faster incident response",
+    hint: "Observability with Splunk and Apigee",
+  },
+] as const;
+
+/**
+ * What the page leads with. Frameworks come and go; this is the part that
+ * survives a stack migration — and the part hiring teams actually read.
+ */
+export const principles = [
+  {
+    title: "Architecture before frameworks",
+    body:
+      "I design for the decisions that are expensive to reverse: service boundaries, data ownership, failure modes. The language is an implementation detail — postgraduate in Solutions Architecture, and it shows in how I scope a system before a line is written.",
+    proof: "Postgraduate, Solutions Architecture · PUC",
+  },
+  {
+    title: "Systems that are not allowed to fail",
+    body:
+      "Air traffic control at Embraer, then payment rails. Both are domains where a bug is not a ticket. That shaped how I treat correctness, observability and incident response — measurable in a 40% cut to response time and 99.9% uptime on a platform moving millions of transactions.",
+    proof: "Aviation + payments · 99.9% uptime",
+  },
+  {
+    title: "Leading a squad, not just a backlog",
+    body:
+      "As tech lead I own the technical direction: architecture calls, code review standards, delivery roadmap, and the engineers growing inside it. The job is making good decisions cheap to make and bad ones cheap to undo.",
+    proof: "Tech Lead · Getnet (Santander)",
+  },
+  {
+    title: "AI where it earns its keep",
+    body:
+      "I ship AI into processes with a real cost attached — automation and decision support inside a payments platform — not demos. Knowing where it does not belong is most of the value.",
+    proof: "AI-driven initiatives since 2023",
+  },
 ] as const;
 
 export const stack = [

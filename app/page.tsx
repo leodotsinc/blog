@@ -2,6 +2,7 @@ import { allPosts, allProjects } from "contentlayer/generated";
 
 import BentoSection from "@/components/home/BentoSection";
 import ContactSection from "@/components/home/ContactSection";
+import PrinciplesSection from "@/components/home/PrinciplesSection";
 import CustomCursor from "@/components/home/CustomCursor";
 import Hero from "@/components/home/Hero";
 import ScrollProgress from "@/components/home/ScrollProgress";
@@ -11,9 +12,9 @@ import WorkSection from "@/components/home/WorkSection";
 import WritingSection from "@/components/home/WritingSection";
 
 export const metadata = {
-  title: "Leo. — Tech Lead & Solutions Architect",
+  title: "Leonardo Torres — Tech Lead & Solutions Architect",
   description:
-    "Leonardo Torres — tech lead from São Paulo building cloud-native systems, AI-driven products, and an over-engineered blog.",
+    "Tech Lead at Getnet (Santander) with 9+ years designing systems that cannot fail — air traffic control and payment rails. Cloud-native architecture on Kubernetes, AWS and GCP, and AI where it earns its keep.",
 };
 
 export default function Home() {
@@ -46,7 +47,7 @@ export default function Home() {
       <CustomCursor />
 
       <Hero />
-      <StackBand />
+      <PrinciplesSection />
       <BentoSection />
 
       <div className="mx-auto max-w-[73rem] px-6 sm:px-9 xl:px-0">
@@ -61,6 +62,7 @@ export default function Home() {
 
       <WritingSection posts={posts} />
       <TimelineSection />
+      <StackBand />
       <ContactSection />
     </div>
   );

@@ -34,7 +34,10 @@ export default function SplitText({
         <span
           key={`${char}-${i}`}
           aria-hidden
-          className="inline-block overflow-hidden align-bottom"
+          /* the curtain needs a vertical clip, but with negative tracking the
+             box is narrower than the glyph ink and letters like "S" lose their
+             right edge — pad the clip box out and pull the layout back */
+          className="inline-block overflow-hidden align-bottom px-[0.07em] -mx-[0.07em]"
           style={{ perspective: 600 }}
         >
           <motion.span

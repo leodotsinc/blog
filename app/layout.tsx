@@ -14,10 +14,16 @@ const montSerrat = Montserrat({
 });
 
 export const metadata: Metadata = {
-  title: "Leo.",
-  description: "Leo's website",
+  title: {
+    default: "Leonardo Torres — Tech Lead & Solutions Architect",
+    template: "%s · Leonardo Torres",
+  },
+  description:
+    "Tech Lead at Getnet (Santander). Nine years designing distributed systems for aviation and payments — architecture, cloud and engineering leadership.",
   icons: {
-    icon: "/favicon.svg",
+    icon: [{ url: "/logo.svg", type: "image/svg+xml" }],
+    shortcut: "/logo.svg",
+    apple: "/logo.svg",
   },
 };
 

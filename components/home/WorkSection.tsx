@@ -46,7 +46,7 @@ export default function WorkSection({ items }: { items: WorkItem[] }) {
       className="relative mx-auto w-full max-w-[73rem] scroll-mt-24 px-6 py-28 sm:px-9 xl:px-0"
     >
       <Reveal>
-        <SectionLabel index="02">Selected work</SectionLabel>
+        <SectionLabel index="03">Selected work</SectionLabel>
       </Reveal>
 
       <Reveal delay={0.05}>
