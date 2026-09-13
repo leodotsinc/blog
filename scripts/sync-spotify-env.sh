@@ -77,6 +77,7 @@ echo "→ updating ${APP_DIR}/.env on ${VPS_HOST}…"
 ssh -p "$VPS_PORT" "$VPS_HOST" 'bash -s' <<REMOTE
 set -euo pipefail
 cd "${APP_DIR}"
+umask 077
 
 if [ ! -f .env ]; then
   echo "No .env in ${APP_DIR} — check how docker-compose.yml passes variables." >&2
@@ -89,7 +90,9 @@ upsert() {
   key="\$1"; value="\$2"
   if grep -q "^\${key}=" .env; then
     grep -v "^\${key}=" .env > .env.tmp
-    mv .env.tmp .env
+    # Keep the existing inode, owner, group and mode used by the deploy account.
+    cat .env.tmp > .env
+    rm .env.tmp
   fi
   printf '%s=%s\n' "\$key" "\$value" >> .env
 }
@@ -98,7 +101,8 @@ upsert SPOTIFY_CLIENT_ID '${SPOTIFY_CLIENT_ID}'
 upsert SPOTIFY_CLIENT_SECRET '${SPOTIFY_CLIENT_SECRET}'
 upsert SPOTIFY_REFRESH_TOKEN '${SPOTIFY_REFRESH_TOKEN}'
 
-chmod 600 .env
+# Preserve .env permissions: this VPS grants its deploy user read access via
+# the docker group. Forcing 600 here would break the next automated deployment.
 
 echo "→ recreating ${SERVICE}…"
 docker compose up -d --force-recreate ${SERVICE}

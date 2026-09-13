@@ -22,6 +22,7 @@
 - O sobrenome mantém folga horizontal no elemento com gradiente para não cortar a tinta do último glifo com tracking negativo.
 - Credenciais do Spotify ficam exclusivamente no `.env` da VPS. A renovação de 2026-09-13 validou as chaves, renovou a autorização revogada e confirmou uma faixa no endpoint público. O retorno OAuth já cadastrado é `http://127.0.0.1:8888/`, usado pelo helper. Trocar o client secret não recupera um refresh token revogado.
 - O container roda como `node` via Compose; manter `.next/cache` gravável por esse usuário na imagem para a otimização de imagens.
+- Preservar proprietário, grupo e permissões do `.env` ao rotacionar credenciais. Na VPS, `leo:docker` com modo `640` mantém leitura para o usuário `deploy`; forçar `600` bloqueia o workflow. Backups e arquivos temporários da sincronização usam umask `077`.
 
 ## Validação
 
