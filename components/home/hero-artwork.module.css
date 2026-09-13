@@ -41,11 +41,11 @@
   .figure { max-width: 36rem; margin-left: auto; margin-right: auto; width: 100%; }
 }
 @media (min-width: 1024px) {
-  .figure { position: absolute; right: -4rem; top: 14.5rem; width: 40rem; height: 40rem; margin: 0; }
+  .figure { position: absolute; right: -4rem; top: 9.5rem; width: 40rem; height: 40rem; margin: 0; }
   .canvas { inset: -3% -3% 0; }
 }
 @media (min-width: 1280px) {
-  .figure { right: -5rem; width: 42rem; height: 42rem; top: 13.5rem; }
+  .figure { right: -5rem; width: 42rem; height: 42rem; top: 8.5rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   .canvas, .fallback { transition: none; }

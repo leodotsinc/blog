@@ -67,7 +67,7 @@ export default function Hero() {
     <div
       ref={section}
       data-enhanced={animated}
-      className="hero relative isolate flex min-h-[100svh] w-full flex-col overflow-hidden"
+      className="hero relative isolate flex min-h-[100svh] w-full flex-col overflow-hidden lg:min-h-0"
     >
       <div aria-hidden className="hero-ambient grain pointer-events-none absolute inset-0 -z-10" />
 
@@ -88,7 +88,7 @@ export default function Hero() {
 
       <motion.div
         style={{ y: animated ? contentY : 0, opacity: animated ? contentOpacity : 1 }}
-        className="relative mx-auto flex min-w-0 w-full max-w-[73rem] flex-1 flex-col justify-center px-6 pb-16 pt-28 sm:px-9 lg:min-h-[54rem] xl:px-0"
+        className="relative mx-auto flex min-w-0 w-full max-w-[73rem] flex-1 flex-col justify-center px-6 pb-16 pt-28 sm:px-9 lg:min-h-[52rem] lg:justify-start lg:pt-32 xl:px-0"
       >
         {/* name */}
         <h1 className="relative z-10 pointer-events-none font-sans text-[clamp(2.6rem,10.5vw,8.5rem)] font-extrabold leading-[0.88] tracking-[-0.045em]">
