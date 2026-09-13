@@ -20,6 +20,7 @@ export default function SiteHeader({ commands }: { commands: CommandItem[] }) {
   const pathname = usePathname() || "/";
   const [menuOpen, setMenuOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
   const [hovered, setHovered] = useState<string | null>(null);
   const [compact, setCompact] = useState(false);
 
@@ -182,7 +183,7 @@ export default function SiteHeader({ commands }: { commands: CommandItem[] }) {
 
       <MenuOverlay
         open={menuOpen}
-        onClose={() => setMenuOpen(false)}
+        onClose={closeMenu}
         activeHref={pathname}
       />
 

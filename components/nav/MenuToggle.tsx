@@ -22,6 +22,7 @@ export default function MenuToggle({
       onClick={onClick}
       aria-label={open ? "Close menu" : "Open menu"}
       aria-expanded={open}
+      aria-controls="site-menu"
       className={cn(
         "group relative flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-foreground/8",
         className

@@ -16,6 +16,14 @@
 - O Architecture Decision Room em `#decision-room` apresenta três cenários hipotéticos (produto, pagamentos e IA), com duas alternativas cada. Texto e diagramas vêm de `data/architecture-decisions.ts`; mostrar ganhos, custos e critérios para rever cada escolha, sem inventar resultados de clientes. Interações locais, sem chamadas de IA ou loops de animação.
 - O toolbox em `#toolbox` usa categorias legíveis de IA/agentes, desenvolvimento e operação. Preservar a quebra natural dos textos e os controles por teclado; não voltar ao anel 3D com etiquetas sobrepostas.
 
+## Menu e primeira interação
+
+- Manter a cortina, entrada em cascata, auroras em movimento, gradiente ativo e transformação do ícone. A cortina usa dois elementos com `translateY` opostos; evitar remontar e animar `clip-path` de uma viewport com filtros grandes no primeiro clique.
+- O menu fica montado, mas fechado usa `inert`, `aria-hidden`, `visibility: hidden` e animações pausadas; relógio só atualiza aberto. Reabrir começa no topo. O callback de fechamento é estável para não reinstalar o bloqueio de scroll a cada atualização do cabeçalho.
+- Links do overlay pré-carregam por intenção (mouse ou foco), sem pré-carregar todas as rotas quando o menu aparece. A medição local de produção em 390 px passou de 19 requisições extras na primeira abertura para zero; esse resultado não equivale a medir FPS em iPhone físico.
+- A suavidade das auroras vem dos próprios gradientes, preservando o deslocamento sem filtros de blur de 110 px. Hover com desfoque pertence apenas a `(hover: hover) and (pointer: fine)`; toque não deve deixar links desfocados. Sublinhados animam escala e opacidade, com espaço para a tipografia, sem largura zerada e recorte do texto.
+- Validado em Chromium de 320 a 1440 px: primeira abertura/reabertura, cortina e cascata em progresso, movimento das auroras, duas direções de tema, Escape, navegação por clique/teclado e fechamento após mudança de rota. A linha rosa relatada no Safari não foi reproduzida nesse navegador; confirmar a correção de composição no aparelho.
+
 ## Tema e integração Spotify
 
 - A onda de tema parte do centro medido do botão, inclusive por teclado e no cabeçalho compacto. Atualizar tema e ícone antes da captura; o ícone tem seu próprio `view-transition-name`. Cliques concorrentes são ignorados até terminar; movimento reduzido e navegadores sem View Transitions trocam diretamente.
