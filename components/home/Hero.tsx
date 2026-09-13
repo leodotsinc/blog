@@ -17,32 +17,6 @@ import ScrambleText from "./ScrambleText";
 import SplitText from "./SplitText";
 import HeroArtwork from "./HeroArtwork";
 
-function useLocalTime(timeZone: string) {
-  const [time, setTime] = useState<string | null>(null);
-
-  useEffect(() => {
-    const format = () =>
-      new Intl.DateTimeFormat("en-GB", {
-        timeZone,
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-      }).format(new Date());
-
-    setTime(format());
-    const id = setInterval(() => setTime(format()), 1000);
-    return () => clearInterval(id);
-  }, [timeZone]);
-
-  return time;
-}
-
-function LocalClock({ timeZone }: { timeZone: string }) {
-  const time = useLocalTime(timeZone);
-  return <span className="tabular-nums text-foreground/80">{time ?? "--:--:--"}</span>;
-}
-
 export default function Hero() {
   const section = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(true);
@@ -116,26 +90,6 @@ export default function Hero() {
         style={{ y: animated ? contentY : 0, opacity: animated ? contentOpacity : 1 }}
         className="relative mx-auto flex min-w-0 w-full max-w-[73rem] flex-1 flex-col justify-center px-6 pb-16 pt-28 sm:px-9 lg:min-h-[54rem] xl:px-0"
       >
-        {/* status chip */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-8 flex max-w-full w-fit flex-wrap items-center gap-x-3 gap-y-1 rounded-full border border-border/70 bg-background/60 px-4 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground sm:text-[11px] sm:tracking-[0.18em]"
-        >
-          <span className="relative flex h-2 w-2 shrink-0">
-            <span
-              className="absolute inline-flex h-full w-full rounded-full bg-emerald-400"
-              style={{
-                animation: animated ? "pulse-dot 2s ease-in-out infinite" : undefined,
-              }}
-            />
-          </span>
-          <span className="whitespace-nowrap">{hero.location}</span>
-          <span className="text-border">/</span>
-          <LocalClock timeZone={hero.timezone} />
-        </motion.div>
-
         {/* name */}
         <h1 className="relative z-10 pointer-events-none font-sans text-[clamp(2.6rem,10.5vw,8.5rem)] font-extrabold leading-[0.88] tracking-[-0.045em]">
           <span className="block">

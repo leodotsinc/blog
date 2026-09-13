@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import Footer from "@/components/Footer";
 import SiteHeader from "@/components/nav/SiteHeader";
+import SmoothScroll from "@/components/SmoothScroll";
 import { buildCommandIndex } from "@/lib/commandIndex";
 
 import Script from "next/script";
@@ -33,13 +34,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="overflow-x-hidden scroll-smooth" suppressHydrationWarning>
+    <html lang="en" className="overflow-x-hidden" suppressHydrationWarning>
       <body className={`${montSerrat.variable} min-h-screen bg-background antialiased flex flex-col`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
         >
+          <SmoothScroll />
           <SiteHeader commands={buildCommandIndex()} />
           <main className="flex-grow pt-20">{children}</main>
           <Footer />

@@ -8,7 +8,7 @@
     "npm": "please-use-yarn"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "contentlayer2 build && next dev",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "next lint",
@@ -26,6 +26,7 @@
     "clsx": "^2.1.1",
     "contentlayer2": "^0.5.8",
     "framer-motion": "^12.42.2",
+    "lenis": "^1.3.26",
     "lucide-react": "^1.27.0",
     "next": "^16.2.12",
     "next-contentlayer2": "^0.5.8",
