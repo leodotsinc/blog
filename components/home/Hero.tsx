@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -16,8 +15,7 @@ import { hero, impact } from "@/data/home";
 import Magnetic from "./Magnetic";
 import ScrambleText from "./ScrambleText";
 import SplitText from "./SplitText";
-
-const HeroCanvas = dynamic(() => import("./HeroCanvas"), { ssr: false });
+import HeroArtwork from "./HeroArtwork";
 
 function useLocalTime(timeZone: string) {
   const [time, setTime] = useState<string | null>(null);
@@ -60,7 +58,6 @@ export default function Hero() {
   });
   const contentY = useTransform(scrollYProgress, [0, 1], ["0%", "12%"]);
   const contentOpacity = useTransform(scrollYProgress, [0, 0.92], [1, 0]);
-  const canvasOpacity = useTransform(scrollYProgress, [0, 0.9], [1, 0.15]);
 
   useEffect(() => {
     const media = window.matchMedia(
@@ -78,7 +75,7 @@ export default function Hero() {
     };
   }, []);
 
-  // stop rendering WebGL once the hero has scrolled away
+  // Pause the cycling role when the hero scrolls away; the artwork owns its render lifecycle.
   useEffect(() => {
     const node = section.current;
     if (!node) return;
@@ -100,29 +97,6 @@ export default function Hero() {
     >
       <div aria-hidden className="hero-ambient pointer-events-none absolute inset-0 -z-10" />
 
-      {/* Touch and reduced-motion devices keep a static version of the artwork. */}
-      {animated ? (
-        <motion.div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 -z-[5]"
-          style={{ opacity: canvasOpacity }}
-        >
-          <HeroCanvas theme={theme} active={visible && pageVisible} />
-        </motion.div>
-      ) : (
-        <div aria-hidden className="hero-orb pointer-events-none absolute -z-[5]" />
-      )}
-
-      {/* legibility scrim + bottom fade into the next section */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-[4] bg-gradient-to-r from-background via-background/80 to-background/45 md:via-background/45 md:to-transparent"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 -z-[4] h-48 bg-gradient-to-t from-background to-transparent"
-      />
-
       {/* right rail — scroll cue */}
       <div className="pointer-events-none absolute bottom-10 right-6 hidden flex-col items-center gap-4 lg:flex">
         <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground [writing-mode:vertical-rl]">
@@ -140,7 +114,7 @@ export default function Hero() {
 
       <motion.div
         style={{ y: animated ? contentY : 0, opacity: animated ? contentOpacity : 1 }}
-        className="relative mx-auto flex min-w-0 w-full max-w-[73rem] flex-1 flex-col justify-center px-6 pb-16 pt-28 sm:px-9 xl:px-0"
+        className="relative mx-auto flex min-w-0 w-full max-w-[73rem] flex-1 flex-col justify-center px-6 pb-16 pt-28 sm:px-9 lg:min-h-[54rem] xl:px-0"
       >
         {/* status chip */}
         <motion.div
@@ -163,7 +137,7 @@ export default function Hero() {
         </motion.div>
 
         {/* name */}
-        <h1 className="font-sans text-[clamp(2.6rem,10.5vw,8.5rem)] font-extrabold leading-[0.88] tracking-[-0.045em]">
+        <h1 className="relative z-10 pointer-events-none font-sans text-[clamp(2.6rem,10.5vw,8.5rem)] font-extrabold leading-[0.88] tracking-[-0.045em]">
           <span className="block">
             <SplitText text="LEONARDO" className="flex-nowrap whitespace-nowrap" delay={0.25} stagger={0.038} />
           </span>
@@ -185,12 +159,14 @@ export default function Hero() {
           </span>
         </h1>
 
+        <HeroArtwork theme={theme} />
+
         {/* role + lede */}
         <motion.div
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.9, delay: 0.85, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-7 flex max-w-xl flex-col gap-5"
+          className="relative z-10 mt-12 flex max-w-xl flex-col gap-5 lg:mt-7 lg:max-w-[29rem]"
         >
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-3 font-mono text-sm uppercase tracking-[0.2em] text-foreground sm:text-base">
@@ -214,7 +190,7 @@ export default function Hero() {
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.9, delay: 1, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-10 flex flex-wrap items-center gap-4"
+          className="relative z-10 mt-10 flex flex-wrap items-center gap-4"
         >
           <Magnetic strength={0.32}>
             <Link
@@ -238,7 +214,7 @@ export default function Hero() {
             </Link>
           </Magnetic>
         </motion.div>
-        <p className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[10px] tracking-wide text-muted-foreground">
+        <p className="relative z-10 mt-4 flex max-w-[29rem] flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[10px] tracking-wide text-muted-foreground">
           <span>An interactive experiment in designing for failure.</span>
           <Link href="#decision-room" className="inline-flex items-center gap-1 text-foreground underline-offset-4 hover:underline">Or make the architecture call <ArrowUpRight size={12} aria-hidden /></Link>
         </p>

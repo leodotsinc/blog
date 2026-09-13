@@ -2,386 +2,117 @@
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
+import type { MutableRefObject } from "react";
 import * as THREE from "three";
+import { createArchitecture, createSignals, createTraces } from "./blueprint-geometry";
 import {
-  blobFragment,
-  blobVertex,
-  particlesFragment,
-  particlesVertex,
+  architectureFragment, architectureVertex, signalFragment, signalVertex,
+  traceFragment, traceVertex,
 } from "./shaders";
 
-type Palette = {
-  a: string;
-  b: string;
-  rim: string;
-  dustA: string;
-  dustB: string;
-};
-
-const PALETTE: Record<"light" | "dark", Palette> = {
-  dark: {
-    a: "#1b1f4b",
-    b: "#0b1030",
-    rim: "#89cff0",
-    dustA: "#89cff0",
-    dustB: "#a78bfa",
-  },
-  light: {
-    a: "#cfe4ff",
-    b: "#8ea8ff",
-    rim: "#5b4bff",
-    dustA: "#6d5efc",
-    dustB: "#4fb6e8",
-  },
-};
-
-const halo = {
-  vertex: /* glsl */ `
-    varying vec3 vN;
-    varying vec3 vV;
-    void main() {
-      vec4 mv = modelViewMatrix * vec4(position, 1.0);
-      vN = normalize(normalMatrix * normal);
-      vV = normalize(-mv.xyz);
-      gl_Position = projectionMatrix * mv;
-    }
-  `,
-  fragment: /* glsl */ `
-    uniform vec3 uColor;
-    uniform float uOpacity;
-    varying vec3 vN;
-    varying vec3 vV;
-    void main() {
-      float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 3.2);
-      gl_FragColor = vec4(uColor, f * uOpacity);
-      #include <colorspace_fragment>
-    }
-  `,
-};
-
-/* ---------------------------------------------------------------- blob -- */
-
-function Blob({
-  theme,
-  detail,
-  reduced,
-}: {
+export type BlueprintPointer = MutableRefObject<{ x: number; y: number }>;
+type Props = {
   theme: "light" | "dark";
-  detail: number;
+  active: boolean;
   reduced: boolean;
-}) {
-  const { viewport } = useThree();
-  const wide = viewport.aspect > 1.15;
-  const mesh = useRef<THREE.Mesh>(null!);
-  const group = useRef<THREE.Group>(null!);
-  const haloRef = useRef<THREE.ShaderMaterial>(null!);
+  low: boolean;
+  open: boolean;
+  pointer: BlueprintPointer;
+  onReady: () => void;
+  onUnavailable: () => void;
+};
 
-  const uniforms = useMemo(
-    () => ({
-      uTime: { value: 0 },
-      uAmp: { value: 0.0 },
-      uFreq: { value: 1.25 },
-      uPointerAmount: { value: 0 },
-      uPointerDir: { value: new THREE.Vector3(0, 0, 1) },
-      uColorA: { value: new THREE.Color(PALETTE[theme].a) },
-      uColorB: { value: new THREE.Color(PALETTE[theme].b) },
-      uColorRim: { value: new THREE.Color(PALETTE[theme].rim) },
-      uOpacity: { value: 1 },
-      uIridescence: { value: 0.62 },
-    }),
-    // palette is lerped every frame; only build the object once
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
+const PALETTE = {
+  dark: { body: "#333a4e", accent: "#91e8ff", violet: "#a79aff" },
+  light: { body: "#d0dfeb", accent: "#007da4", violet: "#7251d4" },
+};
 
-  const haloUniforms = useMemo(
-    () => ({
-      uColor: { value: new THREE.Color(PALETTE[theme].rim) },
-      uOpacity: { value: 0.0 },
-    }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
+function Blueprint({ theme, active, reduced, low, open, pointer, onReady, onUnavailable }: Props) {
+  const root = useRef<THREE.Group>(null);
+  const { gl, invalidate } = useThree();
+  const elapsed = useRef(0);
+  const firstFrame = useRef(true);
+  const geometry = useMemo(() => ({
+    architecture: createArchitecture(), traces: createTraces(), signals: createSignals(low),
+  }), [low]);
+  const uniforms = useMemo(() => ({
+    uTime: { value: 0 }, uOpen: { value: 0 }, uReveal: { value: 0 },
+    uBody: { value: new THREE.Color() }, uAccent: { value: new THREE.Color() },
+    uViolet: { value: new THREE.Color() },
+    uPixelRatio: { value: 1 },
+  }), []);
 
-  const tmp = useMemo(
-    () => ({
-      dir: new THREE.Vector3(),
-      quat: new THREE.Quaternion(),
-      colorA: new THREE.Color(),
-      colorB: new THREE.Color(),
-      colorRim: new THREE.Color(),
-    }),
-    []
-  );
+  // Construct materials with shared uniforms. R3F 9.6 copies declarative uniform
+  // wrappers; mutating the original numbers would leave the GPU frozen.
+  const materials = useMemo(() => ({
+    architecture: new THREE.ShaderMaterial({ uniforms, vertexShader: architectureVertex, fragmentShader: architectureFragment }),
+    traces: new THREE.ShaderMaterial({ uniforms, vertexShader: traceVertex, fragmentShader: traceFragment, transparent: true, depthWrite: false }),
+    signals: new THREE.ShaderMaterial({ uniforms, vertexShader: signalVertex, fragmentShader: signalFragment, transparent: true, depthWrite: false }),
+  }), [uniforms]);
+  useEffect(() => () => Object.values(materials).forEach((item) => item.dispose()), [materials]);
 
-  const { camera } = useThree();
+  useEffect(() => () => Object.values(geometry).forEach((item) => item.dispose()), [geometry]);
+  useEffect(() => {
+    const colors = PALETTE[theme];
+    uniforms.uBody.value.set(colors.body);
+    uniforms.uAccent.value.set(colors.accent);
+    uniforms.uViolet.value.set(colors.violet);
+    invalidate();
+  }, [theme, uniforms, invalidate]);
+  useEffect(() => { invalidate(); }, [active, reduced, open, invalidate]);
+  useEffect(() => {
+    const canvas = gl.domElement;
+    const lost = (event: Event) => { event.preventDefault(); onUnavailable(); };
+    canvas.addEventListener("webglcontextlost", lost);
+    return () => canvas.removeEventListener("webglcontextlost", lost);
+  }, [gl, onUnavailable]);
 
   useFrame((state, delta) => {
-    const d = Math.min(delta, 0.05);
-    const t = state.clock.elapsedTime;
-    const p = state.pointer;
-
-    uniforms.uTime.value = reduced ? 0.6 : t;
-
-    // grow in on first frames instead of popping into existence
-    uniforms.uAmp.value = THREE.MathUtils.damp(
-      uniforms.uAmp.value,
-      reduced ? 0.16 : 0.26,
-      1.4,
-      d
-    );
-
-    // cursor bulge, aimed at the surface point facing the pointer
-    tmp.dir
-      .set(p.x * 1.15, p.y * 1.15, 0.95)
-      .normalize()
-      .applyQuaternion(camera.quaternion);
-    mesh.current.getWorldQuaternion(tmp.quat);
-    tmp.dir.applyQuaternion(tmp.quat.invert());
-    uniforms.uPointerDir.value.lerp(tmp.dir, 0.12);
-    uniforms.uPointerAmount.value = THREE.MathUtils.damp(
-      uniforms.uPointerAmount.value,
-      reduced ? 0 : 0.55,
-      2,
-      d
-    );
-
-    // theme cross-fade
-    const pal = PALETTE[theme];
-    uniforms.uColorA.value.lerp(tmp.colorA.set(pal.a), 0.06);
-    uniforms.uColorB.value.lerp(tmp.colorB.set(pal.b), 0.06);
-    uniforms.uColorRim.value.lerp(tmp.colorRim.set(pal.rim), 0.06);
-    haloUniforms.uColor.value.copy(uniforms.uColorRim.value);
-    haloUniforms.uOpacity.value = THREE.MathUtils.damp(
-      haloUniforms.uOpacity.value,
-      theme === "dark" ? 0.5 : 0.3,
-      2,
-      d
-    );
-
-    if (!reduced) {
-      group.current.rotation.y += d * 0.12;
-      group.current.rotation.x = THREE.MathUtils.damp(
-        group.current.rotation.x,
-        -p.y * 0.26,
-        3,
-        d
-      );
-      group.current.rotation.z = THREE.MathUtils.damp(
-        group.current.rotation.z,
-        p.x * 0.12,
-        3,
-        d
-      );
-      group.current.position.y = Math.sin(t * 0.55) * 0.06;
+    // Clamp the first delta after resuming: no jumps after a menu or tab switch.
+    const dt = Math.min(delta, 0.04);
+    if (active && !reduced) elapsed.current += dt;
+    const t = elapsed.current;
+    uniforms.uTime.value = reduced ? 0 : t;
+    uniforms.uOpen.value = reduced ? Number(open) : THREE.MathUtils.damp(uniforms.uOpen.value, Number(open), 3.8, dt);
+    uniforms.uReveal.value = reduced ? 1 : Math.min(1, t / 1.5);
+    uniforms.uPixelRatio.value = state.viewport.dpr;
+    if (root.current) {
+      root.current.rotation.y = reduced ? -0.35 : THREE.MathUtils.damp(root.current.rotation.y, -0.35 + Math.sin(t * 0.16) * 0.23 + pointer.current.x * 0.16, 3, dt);
+      root.current.rotation.x = reduced ? 0 : THREE.MathUtils.damp(root.current.rotation.x, pointer.current.y * 0.08, 3, dt);
+      root.current.position.y = reduced ? 0 : Math.sin(t * 0.45) * 0.065;
     }
-
-    group.current.position.x = THREE.MathUtils.damp(
-      group.current.position.x,
-      wide ? 1.9 : 0,
-      2,
-      d
-    );
-
-    if (haloRef.current) haloRef.current.uniforms.uOpacity.value = haloUniforms.uOpacity.value;
+    if (firstFrame.current) {
+      firstFrame.current = false;
+      onReady();
+    }
+    // A demand loop stops completely out of view, under the menu or in hidden tabs.
+    // React/resize/theme changes still get one frame, including reduced motion.
+    if (active && !reduced) invalidate();
   });
 
   return (
-    <group ref={group} scale={0.88}>
-      <mesh ref={mesh}>
-        <icosahedronGeometry args={[1, detail]} />
-        <shaderMaterial
-          vertexShader={blobVertex}
-          fragmentShader={blobFragment}
-          uniforms={uniforms}
-        />
-      </mesh>
-
-      {/* atmospheric rim glow */}
-      <mesh scale={1.34}>
-        <sphereGeometry args={[1, 48, 48]} />
-        <shaderMaterial
-          ref={haloRef}
-          vertexShader={halo.vertex}
-          fragmentShader={halo.fragment}
-          uniforms={haloUniforms}
-          transparent
-          side={THREE.BackSide}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-        />
-      </mesh>
-
-      {/* skeletal outer shell for depth */}
-      <mesh scale={1.85} rotation={[0.4, 0.2, 0]}>
-        <icosahedronGeometry args={[1, 1]} />
-        <meshBasicMaterial
-          color={PALETTE[theme].rim}
-          wireframe
-          transparent
-          opacity={theme === "dark" ? 0.1 : 0.16}
-          depthWrite={false}
-        />
-      </mesh>
+    <group ref={root}>
+      <mesh geometry={geometry.architecture} material={materials.architecture} frustumCulled={false} />
+      <lineSegments geometry={geometry.traces} material={materials.traces} frustumCulled={false} />
+      <points geometry={geometry.signals} material={materials.signals} frustumCulled={false} />
     </group>
   );
 }
 
-/* ----------------------------------------------------------- particles -- */
-
-function Dust({
-  count,
-  theme,
-  reduced,
-}: {
-  count: number;
-  theme: "light" | "dark";
-  reduced: boolean;
-}) {
-  const points = useRef<THREE.Points>(null!);
-
-  const geometry = useMemo(() => {
-    const positions = new Float32Array(count * 3);
-    const scales = new Float32Array(count);
-    const seeds = new Float32Array(count);
-
-    for (let i = 0; i < count; i++) {
-      // flattened shell — reads as a galaxy rather than a ball of noise
-      const radius = 2.3 + Math.pow(Math.random(), 0.6) * 5.2;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-
-      positions[i * 3] = Math.sin(phi) * Math.cos(theta) * radius;
-      positions[i * 3 + 1] = Math.cos(phi) * radius * 0.45;
-      positions[i * 3 + 2] = Math.sin(phi) * Math.sin(theta) * radius;
-
-      scales[i] = 0.35 + Math.random() * Math.random() * 2.2;
-      seeds[i] = Math.random();
-    }
-
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    g.setAttribute("aScale", new THREE.BufferAttribute(scales, 1));
-    g.setAttribute("aSeed", new THREE.BufferAttribute(seeds, 1));
-    return g;
-  }, [count]);
-
-  const uniforms = useMemo(
-    () => ({
-      uTime: { value: 0 },
-      uSize: { value: 7.5 },
-      uSpin: { value: 0.32 },
-      uPixelRatio: { value: 1 },
-      uColorA: { value: new THREE.Color(PALETTE[theme].dustA) },
-      uColorB: { value: new THREE.Color(PALETTE[theme].dustB) },
-      uOpacity: { value: 0 },
-    }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
-
-  const tmp = useMemo(() => ({ a: new THREE.Color(), b: new THREE.Color() }), []);
-
-  useFrame((state, delta) => {
-    const d = Math.min(delta, 0.05);
-    uniforms.uTime.value = reduced ? 2 : state.clock.elapsedTime;
-    uniforms.uPixelRatio.value = state.viewport.dpr;
-    uniforms.uOpacity.value = THREE.MathUtils.damp(
-      uniforms.uOpacity.value,
-      theme === "dark" ? 0.95 : 0.6,
-      1.6,
-      d
-    );
-    const pal = PALETTE[theme];
-    uniforms.uColorA.value.lerp(tmp.a.set(pal.dustA), 0.06);
-    uniforms.uColorB.value.lerp(tmp.b.set(pal.dustB), 0.06);
-
-    if (!reduced) {
-      points.current.rotation.y += d * 0.015;
-      points.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.1) * 0.06;
-    }
-  });
-
-  return (
-    <points ref={points} geometry={geometry} frustumCulled={false}>
-      <shaderMaterial
-        vertexShader={particlesVertex}
-        fragmentShader={particlesFragment}
-        uniforms={uniforms}
-        transparent
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-      />
-    </points>
-  );
-}
-
-/* -------------------------------------------------------------- camera -- */
-
-function CameraRig({ reduced }: { reduced: boolean }) {
-  const { camera } = useThree();
-  const scroll = useRef(0);
-
-  /* fed by a passive listener instead of reading scrollY inside the frame loop */
-  useEffect(() => {
-    const read = () => {
-      scroll.current = Math.min(window.scrollY / window.innerHeight, 1);
-    };
-    read();
-    window.addEventListener("scroll", read, { passive: true });
-    return () => window.removeEventListener("scroll", read);
-  }, []);
-
-  useFrame((state, delta) => {
-    const d = Math.min(delta, 0.05);
-
-    const px = reduced ? 0 : state.pointer.x;
-    const py = reduced ? 0 : state.pointer.y;
-
-    camera.position.x = THREE.MathUtils.damp(camera.position.x, px * 0.55, 2.4, d);
-    camera.position.y = THREE.MathUtils.damp(camera.position.y, py * 0.4, 2.4, d);
-    camera.position.z = THREE.MathUtils.damp(
-      camera.position.z,
-      5.1 + scroll.current * 2.6,
-      2.4,
-      d
-    );
-    camera.lookAt(0, 0, 0);
-  });
-
-  return null;
-}
-
-/* --------------------------------------------------------------- scene -- */
-
-export default function HeroCanvas({
-  theme = "dark",
-  active = true,
-  reduced = false,
-  quality = "high",
-}: {
-  theme?: "light" | "dark";
-  active?: boolean;
-  reduced?: boolean;
-  quality?: "high" | "low";
-}) {
-  const low = quality === "low";
-
+export default function HeroCanvas(props: Props) {
   return (
     <Canvas
-      frameloop={active ? "always" : "never"}
-      dpr={[1, low ? 1 : 1.25]}
-      gl={{
-        antialias: !low,
-        alpha: true,
-        powerPreference: "high-performance",
+      frameloop="demand"
+      dpr={[1, props.low ? 1 : 1.25]}
+      gl={{ antialias: true, alpha: true, powerPreference: "default" }}
+      camera={{ position: [4.2, 3.1, 6.7], fov: 39, near: 0.1, far: 30 }}
+      onCreated={({ gl, camera }) => {
+        gl.setClearAlpha(0);
+        camera.lookAt(0, 0, 0);
       }}
-      camera={{ position: [0, 0, 5.1], fov: 38 }}
-      onCreated={({ gl }) => gl.setClearAlpha(0)}
+      fallback={<span className="sr-only">Architectural sculpture illustration</span>}
     >
-      <Blob theme={theme} detail={low ? 8 : 12} reduced={reduced} />
-      <Dust count={low ? 450 : 900} theme={theme} reduced={reduced} />
-      <CameraRig reduced={reduced} />
+      <Blueprint {...props} />
     </Canvas>
   );
 }

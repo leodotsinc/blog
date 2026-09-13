@@ -3,8 +3,12 @@
 ## Hero e desempenho
 
 - Hero e métricas usam fluxo vertical; preservar o nome inteiro e métricas legíveis de 320 px a desktop.
-- Mobile, ponteiro de toque, hardware com até quatro núcleos e movimento reduzido usam arte estática. WebGL fica restrito a desktop compatível, pausado fora da viewport e em abas ocultas.
-- No modo estático, o texto não embaralha e o conteúdo não usa parallax nem fade no scroll. O relógio atualiza somente seu próprio componente.
+- O orbe foi substituído pelo Living Blueprint: sete camadas arquitetônicas, trilhas e partículas que se abrem em uma hélice pelo botão “Unfold the architecture”. WebGL animado também no mobile; a figura entra no fluxo entre o nome e a apresentação abaixo de 1024 px, sem comprimir textos ou métricas.
+- A cena usa três geometrias em lote: 1680 triângulos, 388 segmentos e 392 partículas no perfil leve / 701 no desktop. DPR limitado a 1 no mobile/toque/hardware com até quatro núcleos e a 1,25 no desktop. Não reintroduzir ruído complexo por vértice, pós-processamento ou blur de viewport para obter brilho.
+- `HeroArtwork` observa a própria visibilidade, o estado da aba e `home-locked`; `HeroCanvas` usa um loop sob demanda. Pausar fora da tela e sob o menu, preservar o instante da cena e limitar o delta ao retomar. Mudanças de tema e resize ainda podem desenhar um quadro.
+- Movimento reduzido apresenta um quadro 3D estático, com abertura instantânea por clique/teclado. Carregamento, ausência ou perda de WebGL usam uma ilustração SVG com o mesmo controle. Não tratar todo celular como movimento reduzido.
+- Os materiais Three compartilham os mesmos uniforms diretamente: R3F 9.6 copia os wrappers numéricos ao receber uniforms por JSX, o que congelava a deformação quando o código atualizava somente o objeto original. Descartar geometrias e materiais ao desmontar.
+- No mobile, preservar as entradas do nome, textos, botões e seções. Scramble, parallax e fade do conteúdo continuam restritos ao desktop compatível. O relógio atualiza somente seu próprio componente.
 - Datas de publicações usam UTC explicitamente para manter o HTML do servidor e do navegador idênticos.
 
 ## Experiência da home
@@ -41,4 +45,7 @@
 - Antes de publicar mudanças no hero, executar `yarn build` e verificar o build de produção no navegador em 320, 390, 768 e 1440 px.
 - Conferir nome, métricas, scroll, botão principal, resize e movimento reduzido. Verificar hidratação em UTC e America/Sao_Paulo.
 - Para alterações nas novas experiências, verificar as seis combinações do Decision Room, as três categorias do toolbox e seus textos em 320, 390, 768 e 1440 px. Testar tema nas duas direções, por clique e teclado, com cabeçalho aberto e compacto; conferir a origem real da onda e o ícone durante a transição.
-- Build e health check do workflow não substituem verificação visual. A verificação atual usou Chromium com emulação mobile; desempenho em iPhone físico ainda depende de validação no aparelho.
+- Living Blueprint conferido no build de produção em 320, 390, 768, 1024 e 1440 px, nos dois temas, fechado/aberto, por clique e teclado. O caminho de movimento reduzido e o fallback foram exercitados por controles locais de teste, removidos antes da publicação; isso não equivale a mudar a preferência do sistema operacional.
+- No Chromium local em 390 px, janelas estáveis de 240 quadros registraram mediana de 16,7 ms e p95 de 18,9–20,7 ms. Contadores pararam em 1784 quadros sob o menu e em 1793 fora da seção, sem avanços nas leituras seguintes. Essas medidas não representam desempenho em iPhone físico ou GPU móvel.
+- O lint legado está bloqueado pela configuração FlatCompat / Next 16; a tentativa com configuração nativa também falhou em minimatch/brace-expansion das dependências existentes. Não declarar lint verde com base no build; alinhar a correção do tooling em uma tarefa própria.
+- Build e health check do workflow não substituem verificação visual. A verificação atual usou Chromium em larguras de celular; desempenho em iPhone físico ainda depende de validação no aparelho.

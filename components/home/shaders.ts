@@ -1,245 +1,153 @@
-/**
- * Hand written GLSL for the hero scene.
- *
- * The blob is an icosahedron whose vertices are pushed along their normal by
- * a domain-warped fbm of 3D simplex noise. Normals are re-derived from two
- * displaced neighbours so the lighting actually follows the deformation
- * instead of the original sphere.
- */
-
-/** Simplex 3D noise — Ian McEwan, Ashima Arts (MIT). */
-export const simplexNoise = /* glsl */ `
-vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-vec4 permute(vec4 x) { return mod289(((x * 34.0) + 1.0) * x); }
-vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
-
-float snoise(vec3 v) {
-  const vec2 C = vec2(1.0 / 6.0, 1.0 / 3.0);
-  const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
-
-  vec3 i  = floor(v + dot(v, C.yyy));
-  vec3 x0 = v - i + dot(i, C.xxx);
-
-  vec3 g = step(x0.yzx, x0.xyz);
-  vec3 l = 1.0 - g;
-  vec3 i1 = min(g.xyz, l.zxy);
-  vec3 i2 = max(g.xyz, l.zxy);
-
-  vec3 x1 = x0 - i1 + C.xxx;
-  vec3 x2 = x0 - i2 + C.yyy;
-  vec3 x3 = x0 - D.yyy;
-
-  i = mod289(i);
-  vec4 p = permute(permute(permute(
-             i.z + vec4(0.0, i1.z, i2.z, 1.0))
-           + i.y + vec4(0.0, i1.y, i2.y, 1.0))
-           + i.x + vec4(0.0, i1.x, i2.x, 1.0));
-
-  float n_ = 0.142857142857;
-  vec3 ns = n_ * D.wyz - D.xzx;
-
-  vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
-
-  vec4 x_ = floor(j * ns.z);
-  vec4 y_ = floor(j - 7.0 * x_);
-
-  vec4 x = x_ * ns.x + ns.yyyy;
-  vec4 y = y_ * ns.x + ns.yyyy;
-  vec4 h = 1.0 - abs(x) - abs(y);
-
-  vec4 b0 = vec4(x.xy, y.xy);
-  vec4 b1 = vec4(x.zw, y.zw);
-
-  vec4 s0 = floor(b0) * 2.0 + 1.0;
-  vec4 s1 = floor(b1) * 2.0 + 1.0;
-  vec4 sh = -step(h, vec4(0.0));
-
-  vec4 a0 = b0.xzyw + s0.xzyw * sh.xxyy;
-  vec4 a1 = b1.xzyw + s1.xzyw * sh.zzww;
-
-  vec3 p0 = vec3(a0.xy, h.x);
-  vec3 p1 = vec3(a0.zw, h.y);
-  vec3 p2 = vec3(a1.xy, h.z);
-  vec3 p3 = vec3(a1.zw, h.w);
-
-  vec4 norm = taylorInvSqrt(vec4(dot(p0, p0), dot(p1, p1), dot(p2, p2), dot(p3, p3)));
-  p0 *= norm.x;
-  p1 *= norm.y;
-  p2 *= norm.z;
-  p3 *= norm.w;
-
-  vec4 m = max(0.6 - vec4(dot(x0, x0), dot(x1, x1), dot(x2, x2), dot(x3, x3)), 0.0);
-  m = m * m;
-  return 42.0 * dot(m * m, vec4(dot(p0, x0), dot(p1, x1), dot(p2, x2), dot(p3, x3)));
-}
+/** The same deformation keeps the sculpture, traces and signals connected.
+ * A handful of batched geometries; no noise displacement or postprocessing. */
+export const blueprintTransform = /* glsl */ `
+  uniform float uTime;
+  uniform float uOpen;
+  uniform float uReveal;
+  vec3 blueprint(vec3 p, float layer) {
+    float unfold = smoothstep(0.0, 1.0, clamp(uOpen * 1.6 - layer * 0.1, 0.0, 1.0));
+    float arrival = smoothstep(0.0, 1.0, clamp(uReveal * 1.6 - layer * 0.085, 0.0, 1.0));
+    float angle = (layer - 3.0) * (0.11 + unfold * 0.25);
+    angle += sin(uTime * 0.3 + layer * 0.45) * 0.018;
+    float c = cos(angle), s = sin(angle);
+    p.xz = mat2(c, -s, s, c) * p.xz;
+    p.x += unfold * sin(layer * 0.8) * 0.22;
+    p.y += (layer - 3.0) * (0.27 + unfold * 0.28);
+    p.y += sin(uTime * 0.55 + layer * 0.7) * (0.016 + unfold * 0.015);
+    p.xz *= 1.0 + (1.0 - arrival) * 0.65;
+    p.y += (1.0 - arrival) * (layer - 2.5) * 0.5;
+    return p;
+  }
 `;
 
-export const blobVertex = /* glsl */ `
-uniform float uTime;
-uniform float uAmp;
-uniform float uFreq;
-uniform float uPointerAmount;
-uniform vec3  uPointerDir;
-
-varying vec3  vNormalW;
-varying vec3  vViewDir;
-varying float vDistort;
-
-${simplexNoise}
-
-float fbm(vec3 p) {
-  float f = 0.0;
-  f += 0.55 * snoise(p);
-  f += 0.27 * snoise(p * 2.07);
-  f += 0.13 * snoise(p * 4.13);
-  return f;
-}
-
-/* Displacement for a point on the unit sphere. */
-float displace(vec3 dir) {
-  float t = uTime * 0.16;
-  vec3 q = dir * uFreq + vec3(0.0, t, t * 0.4);
-  /* domain warp: noise sampling noise gives the liquid, non-repeating look */
-  float warp = fbm(q * 0.6 + t * 0.35);
-  float d = fbm(q + warp * 0.75);
-
-  /* the cursor pushes a soft bulge out of the surface */
-  float prox = 1.0 - clamp(distance(dir, uPointerDir) * 0.85, 0.0, 1.0);
-  d += prox * prox * prox * uPointerAmount * 0.9;
-
-  return d * uAmp;
-}
-
-void main() {
-  vec3 dir = normalize(position);
-  float d = displace(dir);
-  vec3 displaced = dir * (1.0 + d);
-
-  /* rebuild the normal from two displaced neighbours on the sphere */
-  vec3 arb = abs(dir.y) < 0.99 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
-  vec3 t1 = normalize(cross(dir, arb));
-  vec3 t2 = normalize(cross(dir, t1));
-  float eps = 0.04;
-
-  vec3 dirA = normalize(dir + t1 * eps);
-  vec3 dirB = normalize(dir + t2 * eps);
-  vec3 pA = dirA * (1.0 + displace(dirA));
-  vec3 pB = dirB * (1.0 + displace(dirB));
-
-  vec3 n = normalize(cross(pA - displaced, pB - displaced));
-  if (dot(n, dir) < 0.0) n = -n;
-
-  vec4 mvPosition = modelViewMatrix * vec4(displaced, 1.0);
-
-  vNormalW = normalize(normalMatrix * n);
-  vViewDir = normalize(-mvPosition.xyz);
-  vDistort = d;
-
-  gl_Position = projectionMatrix * mvPosition;
-}
+export const architectureVertex = /* glsl */ `
+  ${blueprintTransform}
+  attribute float aLayer;
+  attribute float aKind;
+  attribute vec3 aLocal;
+  varying vec3 vLocal;
+  varying vec3 vNormal;
+  varying vec3 vPosition;
+  varying float vKind;
+  varying float vLayer;
+  void main() {
+    vec3 p = blueprint(position, aLayer);
+    // Apply the layer's rotation to its normals without the translation.
+    vec3 n = blueprint(position + normal, aLayer) - p;
+    vNormal = normalize(normalMatrix * n);
+    vLocal = aLocal;
+    vPosition = p;
+    vKind = aKind;
+    vLayer = aLayer;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+  }
 `;
 
-export const blobFragment = /* glsl */ `
-uniform vec3  uColorA;
-uniform vec3  uColorB;
-uniform vec3  uColorRim;
-uniform float uTime;
-uniform float uOpacity;
-uniform float uIridescence;
-
-varying vec3  vNormalW;
-varying vec3  vViewDir;
-varying float vDistort;
-
-/* Controlled thin-film ramp: cyan -> violet -> magenta.
-   A full rainbow palette here goes green, which fights the brand. */
-vec3 iridescent(float t) {
-  t = fract(t);
-  vec3 cyan   = vec3(0.28, 0.76, 0.95);
-  vec3 violet = vec3(0.44, 0.35, 1.00);
-  vec3 magenta = vec3(1.00, 0.44, 0.82);
-  return t < 0.5
-    ? mix(cyan, violet, smoothstep(0.0, 0.5, t))
-    : mix(violet, magenta, smoothstep(0.5, 1.0, t));
-}
-
-void main() {
-  vec3 N = normalize(vNormalW);
-  vec3 V = normalize(vViewDir);
-
-  float fres = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 2.6);
-
-  vec3 L = normalize(vec3(0.9, 1.1, 0.75));
-  float diff = clamp(dot(N, L), 0.0, 1.0) * 0.8 + 0.2;
-
-  vec3 H = normalize(L + V);
-  float spec = pow(clamp(dot(N, H), 0.0, 1.0), 64.0);
-
-  float grad = smoothstep(-0.22, 0.22, vDistort);
-  vec3 base = mix(uColorA, uColorB, grad);
-
-  vec3 irid = iridescent(vDistort * 1.35 + fres * 0.45 + uTime * 0.015);
-
-  /* additive keeps the body deep while the edges light up */
-  vec3 col = base * diff;
-  col += irid * uIridescence * (0.09 + 0.62 * fres);
-  col += uColorRim * pow(fres, 1.6) * 0.85;
-  col += vec3(1.0) * spec * 0.35;
-
-  gl_FragColor = vec4(col, uOpacity);
-  #include <colorspace_fragment>
-}
+export const architectureFragment = /* glsl */ `
+  uniform vec3 uBody;
+  uniform vec3 uAccent;
+  uniform vec3 uViolet;
+  uniform float uTime;
+  varying vec3 vLocal;
+  varying vec3 vNormal;
+  varying vec3 vPosition;
+  varying float vKind;
+  varying float vLayer;
+  void main() {
+    vec3 n = normalize(vNormal);
+    float diffuse = max(dot(n, normalize(vec3(-0.4, 0.8, 0.6))), 0.0);
+    float rim = pow(1.0 - abs(n.z), 2.5);
+    vec3 accent = mix(uAccent, uViolet, clamp(vLayer / 6.0, 0.0, 1.0));
+    vec3 base = uBody * (0.55 + diffuse * 0.65);
+    base += accent * (0.04 + rim * 0.18);
+    vec3 d = abs(vLocal);
+    float second = max(min(d.x, d.y), max(min(d.y, d.z), min(d.x, d.z)));
+    float edge = smoothstep(0.466, 0.494, second);
+    base = mix(base, accent * (0.5 + diffuse * 0.5), edge * 0.8);
+    float scan = pow(max(0.0, 1.0 - abs(vPosition.y - sin(uTime * 0.65) * 2.7) * 3.5), 3.0);
+    base += accent * scan * 0.22;
+    if (vKind > 0.5) {
+      base = mix(accent * 0.55, accent, diffuse * 0.7 + 0.3);
+      if (vKind > 1.5) base = mix(uBody, accent, 0.18) * (0.6 + diffuse * 0.6);
+    }
+    gl_FragColor = vec4(base, 1.0);
+    #include <colorspace_fragment>
+  }
 `;
 
-export const particlesVertex = /* glsl */ `
-uniform float uTime;
-uniform float uSize;
-uniform float uPixelRatio;
-uniform float uSpin;
-
-attribute float aScale;
-attribute float aSeed;
-
-varying float vTwinkle;
-varying float vSeed;
-
-void main() {
-  vec3 p = position;
-
-  float r = length(p.xz);
-  float ang = uTime * uSpin * (0.35 + 0.5 / max(r, 0.8));
-  float s = sin(ang);
-  float c = cos(ang);
-  p.xz = mat2(c, -s, s, c) * p.xz;
-  p.y += sin(uTime * 0.45 + aSeed * 11.0) * 0.22;
-
-  vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);
-  gl_Position = projectionMatrix * mvPosition;
-  gl_PointSize = uSize * aScale * uPixelRatio * (1.0 / max(-mvPosition.z, 0.1));
-
-  vTwinkle = 0.35 + 0.65 * pow(abs(sin(uTime * 0.8 + aSeed * 17.0)), 2.0);
-  vSeed = aSeed;
-}
+export const traceVertex = /* glsl */ `
+  ${blueprintTransform}
+  attribute float aLayer;
+  varying float vLayer;
+  void main() {
+    vLayer = aLayer;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(blueprint(position, aLayer), 1.0);
+  }
+`;
+export const traceFragment = /* glsl */ `
+  uniform vec3 uAccent;
+  uniform vec3 uViolet;
+  uniform float uOpen;
+  varying float vLayer;
+  void main() {
+    gl_FragColor = vec4(mix(uAccent, uViolet, vLayer / 6.0), 0.2 + uOpen * 0.2);
+    #include <colorspace_fragment>
+  }
 `;
 
-export const particlesFragment = /* glsl */ `
-uniform vec3  uColorA;
-uniform vec3  uColorB;
-uniform float uOpacity;
-
-varying float vTwinkle;
-varying float vSeed;
-
-void main() {
-  vec2 uv = gl_PointCoord - 0.5;
-  float d = length(uv);
-  float alpha = smoothstep(0.5, 0.05, d);
-  alpha *= alpha;
-
-  vec3 col = mix(uColorA, uColorB, vSeed);
-
-  gl_FragColor = vec4(col, alpha * vTwinkle * uOpacity);
-  #include <colorspace_fragment>
-}
+export const signalVertex = /* glsl */ `
+  ${blueprintTransform}
+  uniform float uPixelRatio;
+  attribute float aLayer;
+  attribute float aSeed;
+  attribute float aTrail;
+  varying float vAlpha;
+  varying float vLayer;
+  void main() {
+    float phase = fract(aSeed + uTime * 0.075 - aTrail * 0.004);
+    vec3 p;
+    float layer = aLayer;
+    if (aLayer < 7.0) {
+      // Signals turn four corners on the deck's perimeter.
+      float lane = phase * 4.0;
+      float f = fract(lane);
+      float r = 1.27;
+      if (lane < 1.0) p = vec3(mix(-r, r, f), 0.105, -r);
+      else if (lane < 2.0) p = vec3(r, 0.105, mix(-r, r, f));
+      else if (lane < 3.0) p = vec3(mix(r, -r, f), 0.105, r);
+      else p = vec3(-r, 0.105, mix(r, -r, f));
+    } else if (aLayer < 8.0) {
+      layer = phase * 6.0;
+      p = position;
+    } else {
+      layer = phase * 6.0;
+      float angle = aSeed * 37.0 + uTime * 0.08;
+      float radius = 1.9 + sin(aSeed * 127.0) * 0.3;
+      p = vec3(cos(angle) * radius, 0.0, sin(angle) * radius);
+    }
+    p = blueprint(p, layer);
+    vec4 mv = modelViewMatrix * vec4(p, 1.0);
+    gl_Position = projectionMatrix * mv;
+    gl_PointSize = min(12.0, (aTrail < 0.5 ? 48.0 : 23.0) * uPixelRatio / -mv.z);
+    vAlpha = (1.0 - aTrail / 7.0) * 0.9;
+    vLayer = layer;
+    if (aLayer > 7.5) {
+      vAlpha *= 0.38;
+      gl_PointSize *= 0.6;
+    }
+  }
+`;
+export const signalFragment = /* glsl */ `
+  uniform vec3 uAccent;
+  uniform vec3 uViolet;
+  varying float vAlpha;
+  varying float vLayer;
+  void main() {
+    float radius = length(gl_PointCoord - 0.5) * 2.0;
+    if (radius > 1.0) discard;
+    float alpha = pow(1.0 - radius, 1.6) * vAlpha;
+    vec3 color = mix(uAccent, uViolet, vLayer / 6.0);
+    gl_FragColor = vec4(mix(color, vec3(1.0), 0.32), alpha);
+    #include <colorspace_fragment>
+  }
 `;
