@@ -81,7 +81,7 @@ export default function BentoSection() {
         </Reveal>
 
         {/* A readable shelf instead of overlapping 3D labels. */}
-        <Reveal delay={0.12} className="md:col-span-2">
+        <Reveal delay={0.12} className="md:col-span-2 md:row-span-2">
           <div className="h-full min-w-0 rounded-2xl border border-border/60 bg-card/60"><Toolbox /></div>
         </Reveal>
 
@@ -117,14 +117,14 @@ export default function BentoSection() {
         </Reveal>
 
         {/* facts */}
-        <Reveal delay={0.19} className="md:col-span-2">
+        <Reveal delay={0.19} className="md:col-span-6">
           <TiltCard className="h-full" intensity={6}>
             <div className="flex h-full flex-col p-6">
               <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
                 <Sparkles className="h-3.5 w-3.5" />
                 Off the clock
               </span>
-              <ul className="mt-5 space-y-3">
+              <ul className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {facts.map((fact) => (
                   <li
                     key={fact}
