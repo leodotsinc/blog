@@ -7,7 +7,7 @@
  * Before running, add this exact redirect URI to your app at
  * https://developer.spotify.com/dashboard  →  your app  →  Settings:
  *
- *   http://127.0.0.1:8888/callback
+ *   http://127.0.0.1:8888/
  *
  * Nothing is written to disk and the secret is never printed.
  */
@@ -18,7 +18,7 @@ import { randomBytes } from "node:crypto";
 const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
 const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 const PORT = 8888;
-const REDIRECT_URI = `http://127.0.0.1:${PORT}/callback`;
+const REDIRECT_URI = `http://127.0.0.1:${PORT}/`;
 const SCOPES = ["user-read-currently-playing", "user-read-recently-played"];
 
 if (!CLIENT_ID || !CLIENT_SECRET) {
@@ -72,7 +72,7 @@ async function exchange(code) {
 const server = createServer(async (request, response) => {
   const url = new URL(request.url, `http://127.0.0.1:${PORT}`);
 
-  if (url.pathname !== "/callback") {
+  if (url.pathname !== "/") {
     response.writeHead(404).end("Not here.");
     return;
   }

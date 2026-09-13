@@ -169,7 +169,7 @@ export default function Hero() {
           </span>
           <span className="flex items-baseline overflow-hidden pb-[0.06em]">
             <motion.span
-              className="text-iris inline-block"
+              className="text-iris inline-block pr-[0.08em] -mr-[0.08em]"
               initial={{ y: "110%" }}
               animate={{ y: "0%" }}
               transition={{ duration: 1, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
@@ -238,7 +238,10 @@ export default function Hero() {
             </Link>
           </Magnetic>
         </motion.div>
-        <p className="mt-4 font-mono text-[10px] tracking-wide text-muted-foreground">An interactive experiment in designing for failure.</p>
+        <p className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-[10px] tracking-wide text-muted-foreground">
+          <span>An interactive experiment in designing for failure.</span>
+          <Link href="#decision-room" className="inline-flex items-center gap-1 text-foreground underline-offset-4 hover:underline">Or make the architecture call <ArrowUpRight size={12} aria-hidden /></Link>
+        </p>
 
       </motion.div>
 

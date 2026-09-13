@@ -4,12 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, GraduationCap, Sparkles } from "lucide-react";
 
-import { education, facts, stack } from "@/data/home";
+import { education, facts } from "@/data/home";
 import { siteMetadata } from "@/data/siteMetadata";
 import NowPlayingCard from "./NowPlayingCard";
 import Reveal from "./Reveal";
 import SectionLabel from "./SectionLabel";
-import StackRing from "./StackRing";
+import Toolbox from "./Toolbox";
 import TiltCard from "./TiltCard";
 import WavingHand from "@/components/WavingHand";
 
@@ -80,16 +80,9 @@ export default function BentoSection() {
           </TiltCard>
         </Reveal>
 
-        {/* stack ring */}
+        {/* A readable shelf instead of overlapping 3D labels. */}
         <Reveal delay={0.12} className="md:col-span-2">
-          <TiltCard className="h-full" intensity={6}>
-            <div className="flex h-full flex-col overflow-hidden p-6">
-              <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-                The toolbox
-              </span>
-              <StackRing items={stack.slice(0, 11)} className="my-auto" />
-            </div>
-          </TiltCard>
+          <div className="h-full min-w-0 rounded-2xl border border-border/60 bg-card/60"><Toolbox /></div>
         </Reveal>
 
         {/* spotify */}

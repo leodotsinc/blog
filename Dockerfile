@@ -17,6 +17,9 @@ COPY --from=builder /app/yarn.lock ./
 
 RUN npm install -g corepack && corepack enable && yarn install --production --frozen-lockfile
 
+# Compose runs as node; the image optimizer must be able to persist its cache.
+RUN mkdir -p .next/cache && chown -R node:node .next/cache
+
 EXPOSE 3000
 
 CMD ["yarn", "start"]

@@ -280,6 +280,10 @@ body:has(#v2-page) > main {
 }
 
 @layer base {
+  ::view-transition-group(root) {
+    animation: none;
+    z-index: 1;
+  }
   ::view-transition-old(root) {
     animation: none;
     mix-blend-mode: normal;
@@ -288,7 +292,24 @@ body:has(#v2-page) > main {
   ::view-transition-new(root) {
     animation: none;
     mix-blend-mode: normal;
-    z-index: 9999;
+    z-index: 2;
+  }
+  ::view-transition-group(theme-toggle) {
+    animation: none;
+    z-index: 3;
+  }
+  ::view-transition-old(theme-toggle) {
+    display: none;
+  }
+  ::view-transition-new(theme-toggle) {
+    animation: none;
+    mix-blend-mode: normal;
+  }
+  .theme-toggle {
+    view-transition-name: theme-toggle;
+  }
+  .theme-changing *, .theme-changing *::before, .theme-changing *::after {
+    transition: none !important;
   }
 }
 
