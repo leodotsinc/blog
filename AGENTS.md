@@ -18,6 +18,9 @@
 
 ## Menu e primeira interação
 
+- O cabeçalho anima a largura real entre 208 px e 100% de um pai limitado a 1168 px. Não animar `max-width` até 1168 px numa barra limitada pela viewport: em 390 px isso fazia a expansão visível acabar em 45 ms. Preservar duração de 550 ms, easing, padding e limiar de scroll; o limite desktop fica no pai.
+- Na medição local de produção em 390 px, os dois sentidos passaram a chegar a menos de 1 px do destino em aproximadamente 399/392 ms. Conferidos também 320, 768 e 1440 px, resize, inversão do scroll durante a animação, menu e origem da onda de tema. Medições em Chromium, sem alegar execução em iPhone físico.
+
 - Manter a cortina, entrada em cascata, auroras em movimento, gradiente ativo e transformação do ícone. A cortina usa dois elementos com `translateY` opostos; evitar remontar e animar `clip-path` de uma viewport com filtros grandes no primeiro clique.
 - O menu fica montado, mas fechado usa `inert`, `aria-hidden`, `visibility: hidden` e animações pausadas; relógio só atualiza aberto. Reabrir começa no topo. O callback de fechamento é estável para não reinstalar o bloqueio de scroll a cada atualização do cabeçalho.
 - Links do overlay pré-carregam por intenção (mouse ou foco), sem pré-carregar todas as rotas quando o menu aparece. A medição local de produção em 390 px passou de 19 requisições extras na primeira abertura para zero; esse resultado não equivale a medir FPS em iPhone físico.

@@ -68,18 +68,19 @@ export default function SiteHeader({ commands }: { commands: CommandItem[] }) {
         /* lifted above the overlay while it is open so the toggle stays
            reachable and can morph into the close button */
         style={{ zIndex: menuOpen ? 62 : 1 }}
-        className="relative mx-auto w-full"
+        className="relative mx-auto w-full max-w-[1168px]"
       >
         <motion.div
           initial={false}
           animate={{
-            maxWidth: compact ? 208 : 1168,
+            width: compact ? 208 : "100%",
             paddingLeft: compact ? 8 : 18,
             paddingRight: compact ? 8 : 18,
           }}
           transition={{ duration: 0.55, ease: EASE }}
-          /* max-width and padding are layout properties, so the morph reflows
-             every frame — containment keeps that work inside the header */
+          /* Animate the actual width inside a capped parent. A 1168px
+             max-width target finishes visibly too early on narrow screens.
+             Containment keeps width/padding layout work inside the header. */
           style={{ contain: "layout style" }}
           className={cn(
             "mx-auto flex h-14 items-center justify-between rounded-full border transition-colors duration-500",
