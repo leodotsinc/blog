@@ -93,9 +93,9 @@ export default function Hero() {
     <div
       ref={section}
       data-enhanced={animated}
-      className="hero relative isolate grain flex min-h-[100svh] w-full flex-col overflow-hidden"
+      className="hero relative isolate flex min-h-[100svh] w-full flex-col overflow-hidden"
     >
-      <div aria-hidden className="hero-ambient pointer-events-none absolute inset-0 -z-10" />
+      <div aria-hidden className="hero-ambient grain pointer-events-none absolute inset-0 -z-10" />
 
       {/* right rail — scroll cue */}
       <div className="pointer-events-none absolute bottom-10 right-6 hidden flex-col items-center gap-4 lg:flex">
@@ -166,7 +166,7 @@ export default function Hero() {
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.9, delay: 0.85, ease: [0.16, 1, 0.3, 1] }}
-          className="relative z-10 mt-12 flex max-w-xl flex-col gap-5 lg:mt-7 lg:max-w-[29rem]"
+          className="relative z-10 mt-4 flex max-w-xl flex-col gap-5 lg:mt-7 lg:max-w-[29rem]"
         >
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-3 font-mono text-sm uppercase tracking-[0.2em] text-foreground sm:text-base">

@@ -1,9 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { Component, useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useReducedMotion } from "framer-motion";
-import { Layers3, MoveVertical } from "lucide-react";
+import { monogramPath } from "@/data/monogram";
 import styles from "./hero-artwork.module.css";
 
 const HeroCanvas = dynamic(() => import("./HeroCanvas"), { ssr: false });
@@ -15,18 +15,22 @@ class CanvasBoundary extends Component<{ children: ReactNode; onError: () => voi
   render() { return this.state.failed ? null : this.props.children; }
 }
 
-/** An equally intentional illustration while loading or without WebGL. */
-function BlueprintFallback({ hidden, open }: { hidden: boolean; open: boolean }) {
+/** The original vector mark stays visible until the metal has compiled. */
+function MonogramFallback({ hidden }: { hidden: boolean }) {
+  const gradientId = useId();
   return (
     <div className={styles.fallback} data-hidden={hidden} aria-hidden>
-      <svg viewBox="0 0 400 400" fill="none">
-        {Array.from({ length: 7 }, (_, i) => (
-          <path key={i}
-            d="M 74 170 L 218 88 L 332 153 L 188 236 Z M 111 170 L 218 109 L 295 153 L 188 214 Z M 74 170 V 179 L 188 245 L 332 162 V 153 M 188 236 V 245"
-            transform={`translate(0 ${(i - 3) * (open ? 29 : 17)})`}
-            stroke={i < 3 ? "var(--glow-2)" : "var(--glow-1)"}
-            fill="var(--background)" strokeWidth="1.2" />
-        ))}
+      <svg viewBox="0 0 1024 1024" fill="none">
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="var(--foreground)" stopOpacity=".7" />
+            <stop offset=".45" stopColor="var(--glow-2)" stopOpacity=".6" />
+            <stop offset="1" stopColor="var(--glow-1)" stopOpacity=".5" />
+          </linearGradient>
+        </defs>
+        <g transform="matrix(0.12173, 0, 0, -0.12173, -141.081543, 1139.412231)" fill={`url(#${gradientId})`}>
+          <path d={monogramPath} />
+        </g>
       </svg>
     </div>
   );
@@ -35,10 +39,9 @@ function BlueprintFallback({ hidden, open }: { hidden: boolean; open: boolean })
 export default function HeroArtwork({ theme }: { theme: "light" | "dark" }) {
   const figure = useRef<HTMLElement>(null);
   const pointer = useRef({ x: 0, y: 0 });
-  const [near, setNear] = useState(false);
+  const [started, setStarted] = useState(false);
   const [active, setActive] = useState(false);
   const [low, setLow] = useState(true);
-  const [open, setOpen] = useState(false);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const reduced = Boolean(useReducedMotion());
@@ -51,23 +54,34 @@ export default function HeroArtwork({ theme }: { theme: "light" | "dark" }) {
     let visible = false;
     const update = () => setActive(visible && document.visibilityState === "visible" && !document.documentElement.classList.contains("home-locked"));
     const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; update(); }, { threshold: 0 });
-    const preload = new IntersectionObserver(([entry]) => { if (entry.isIntersecting) { setNear(true); preload.disconnect(); } }, { rootMargin: "200px" });
     const menu = new MutationObserver(update);
     observer.observe(element);
-    preload.observe(element);
     menu.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
     document.addEventListener("visibilitychange", update);
     const media = window.matchMedia("(min-width: 1024px) and (pointer: fine)");
     const quality = () => setLow(!media.matches || (navigator.hardwareConcurrency ?? 4) <= 4);
     quality();
     media.addEventListener("change", quality);
-    return () => { observer.disconnect(); preload.disconnect(); menu.disconnect(); document.removeEventListener("visibilitychange", update); media.removeEventListener("change", quality); };
+    return () => { observer.disconnect(); menu.disconnect(); document.removeEventListener("visibilitychange", update); media.removeEventListener("change", quality); };
   }, []);
 
+  useEffect(() => {
+    if (!active || started) return;
+    // Give the first layout and navigation priority over creating the reflection map.
+    // Once started, keep the scene mounted so reopening the menu never recompiles it.
+    if ("requestIdleCallback" in window) {
+      const idle = window.requestIdleCallback(() => setStarted(true), { timeout: 1500 });
+      return () => window.cancelIdleCallback(idle);
+    }
+    const timer = setTimeout(() => setStarted(true), 120);
+    return () => clearTimeout(timer);
+  }, [active, started]);
+
   return (
-    <figure ref={figure} className={styles.figure} aria-label="Living blueprint: an interactive architectural sculpture" data-blueprint-active={active && !reduced} data-blueprint-open={open}>
+    <figure ref={figure} className={styles.figure} aria-label="Leonardo Torres monogram, a kinetic metal sculpture" data-sculpture-active={active && !reduced}>
       <div className={styles.aura} aria-hidden />
-      <BlueprintFallback hidden={ready && !failed} open={open} />
+      <div className={styles.shadow} aria-hidden />
+      <MonogramFallback hidden={ready && !failed} />
       <div className={styles.canvas} data-ready={ready} aria-hidden
         onPointerMove={(event) => {
           if (event.pointerType !== "mouse") return;
@@ -76,17 +90,11 @@ export default function HeroArtwork({ theme }: { theme: "light" | "dark" }) {
           pointer.current.y = ((event.clientY - bounds.top) / bounds.height - .5) * 2;
         }}
         onPointerLeave={() => { pointer.current.x = 0; pointer.current.y = 0; }}>
-        {near && !failed && <CanvasBoundary onError={onUnavailable}>
-          <HeroCanvas theme={theme} active={active} reduced={reduced} low={low} open={open} pointer={pointer} onReady={onReady} onUnavailable={onUnavailable} />
+        {started && !failed && <CanvasBoundary onError={onUnavailable}>
+          <HeroCanvas theme={theme} active={active} reduced={reduced} low={low} pointer={pointer} onReady={onReady} onUnavailable={onUnavailable} />
         </CanvasBoundary>}
       </div>
-      <span className={styles.label}>Living blueprint / 001</span>
-      <button type="button" className={styles.control} aria-pressed={open} onClick={() => setOpen((value) => !value)}>
-        {open ? <Layers3 size={15} aria-hidden /> : <MoveVertical size={15} aria-hidden />}
-        <span>{open ? "Bring it together" : "Unfold the architecture"}</span>
-        <span className={styles.index} aria-hidden>{open ? "02 / FLOW" : "01 / FORM"}</span>
-      </button>
-      <figcaption className={styles.caption} aria-live="polite">{open ? "Every connection has a purpose." : "There’s more beneath the surface."}</figcaption>
+      <figcaption className="sr-only">The pieces of Leonardo’s monogram slowly separate, turn and reunite.</figcaption>
     </figure>
   );
 }

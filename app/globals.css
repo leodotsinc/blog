@@ -518,7 +518,7 @@ body:has(#v2-page) > main {
     radial-gradient(ellipse at 90% 60%, color-mix(in oklab, var(--glow-3) 10%, transparent), transparent 55%);
 }
 
-.hero[data-enhanced="false"]::after {
+.hero[data-enhanced="false"] .hero-ambient::after {
   display: none;
 }
 
