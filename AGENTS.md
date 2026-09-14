@@ -37,7 +37,7 @@
 - O sobrenome mantém folga horizontal no elemento com gradiente para não cortar a tinta do último glifo com tracking negativo.
 - Credenciais do Spotify ficam exclusivamente no `.env` da VPS. A renovação de 2026-09-13 validou as chaves, renovou a autorização revogada e confirmou uma faixa no endpoint público. O retorno OAuth já cadastrado é `http://127.0.0.1:8888/`, usado pelo helper. Trocar o client secret não recupera um refresh token revogado.
 - O container roda como `node` via Compose; manter `.next/cache` gravável por esse usuário na imagem para a otimização de imagens.
-- Preservar proprietário, grupo e permissões do `.env` ao rotacionar credenciais. Na VPS, `leo:docker` com modo `640` mantém leitura para o usuário `deploy`; forçar `600` bloqueia o workflow. Backups e arquivos temporários da sincronização usam umask `077`.
+- Preservar proprietário, grupo e permissões do `.env` ao rotacionar credenciais. Na VPS, `leo:docker` com modo `640` é o estado preservado e conferido pelo helper de deploy; mudanças de modo/proprietário exigem manutenção explícita. Backups e arquivos temporários da sincronização usam umask `077`.
 
 ## Validação
 
@@ -50,12 +50,11 @@
 - O lint legado está bloqueado pela configuração FlatCompat / Next 16; a tentativa com configuração nativa também falhou em minimatch/brace-expansion das dependências existentes. Não declarar lint verde com base no build; alinhar a correção do tooling em uma tarefa própria.
 - Build e health check do workflow não substituem verificação visual. A verificação atual usou Chromium em larguras de celular; desempenho em iPhone físico ainda depende de validação no aparelho.
 
-## D2 — contrato de publicação preparado
+## D2 — contrato de publicação aplicado
 
-- CI própria valida PRs e push em main; Deploy depende da CI bem-sucedida do SHA atual. O lote preparado usa SemVer por release, imagem imutável e metadados públicos mínimos em `/api/version`. Não inferir instalação ou corte a partir dos arquivos locais.
-- A primeira aplicação exige helper Blog instalado/revisado, chave SSH dedicada com comando forçado e host key conferida. Produção conserva seu Compose/env; o repo não contém credenciais. Detalhes de bootstrap e operação pertencem ao repo privado `vps-bootstrap`. Não executar o workflow legado compartilhado como fallback.
-- SemVer parte da última release publicada e verificada: mudanças comuns PATCH, `feat:` MINOR e breaking changes MAJOR. Tags/releases só são publicadas após health e identidade de runtime; uma publicação incompleta exige retomar seu artefato original, sem sobrescrever tags.
-- `/api/health` não chama Spotify; `/api/version` expõe apenas versão, commit e build. Os testes de imagem usam ambiente isolado sem secrets. HTTP/identidade não substituem verificação visual, disponibilidade do Spotify ou restore. Hero, conteúdo, UI e credenciais Spotify foram preservados. Dependências Next/Sharp receberam correções de segurança na candidata; não inferir correção em produção antes do rollout.
-
-- Qualificação D2 em 14/09: CI `34855703093` do commit `2dd8c3c222ead5633717e77ff782b4b4a7ad480b` passou nos três jobs (source/build, publicação e imagem Linux/runtime). Next 16.3.3, Sharp 0.35.4 e libheif 1.23.2 conferidos dentro da imagem, com PNG/JPEG e `/_next/image` exercitados. PR #122 continua preparado, sem merge/rollout.
-- `scripts/sync-spotify-env.sh` foi aposentado e recusa qualquer execução antes de acessar a rede ou escrever arquivos; não usar cópia antiga como atalho para recriar o container. A rotação controlada de credenciais precisa de ação própria com lock, checkpoint e validação, sem gerar versão fictícia do app.
+- Blog **0.1.0** implantado em 14/09/2026, commit `01990f4d3d0b16fa5832b4340e4da477c9387e4e`, após CI `34864714015` e imagem qualificada no build `34865012930`. A [release v0.1.0](https://github.com/leodotsinc/blog/releases/tag/v0.1.0) registra o manifesto verificado e o digest. Este registro é histórico; confirmar a versão em produção antes de operar.
+- Deploy depende da CI bem-sucedida do SHA atual de main. SemVer parte da última release publicada e verificada: mudanças comuns PATCH, `feat:` MINOR e breaking changes MAJOR. Tags/releases só são publicadas após health e identidade do runtime. Falha de publicação exige reutilizar o artefato original; não reconstruir outra imagem com a mesma versão nem sobrescrever tags.
+- Helper e chave dedicada com comando forçado já instalados. O bootstrap inicial foi concluído; não repeti-lo nem usar o deploy compartilhado legado como fallback. Operação, recuperação, checkpoints e estado da rotina pertencem ao repo privado `vps-bootstrap`.
+- `/api/health` não chama Spotify; `/api/version` expõe apenas versão, commit e build, com no-store. A validação real incluiu health/version públicos, Spotify, hero em 1440/390 px, menu e navegação. O teste de repetição pela chave restrita preservou o container; isso não é uma execução de rollout em runner GitHub nem restore independente.
+- Next 16.3.3, Sharp 0.35.4 e libheif 1.23.2 foram qualificados na imagem; PNG/JPEG e `/_next/image` exercitados. A troca preservou hero, conteúdo e credenciais. O aviso de depreciação `THREE.Clock` já existia antes; o lint mantém a limitação acima.
+- `scripts/sync-spotify-env.sh` está aposentado e recusa antes de rede/escritas. Rotação de credenciais exige manutenção própria com lock, checkpoint e validação, sem versão fictícia do app; o helper de refresh token foi preservado.

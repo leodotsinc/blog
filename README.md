@@ -31,14 +31,16 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Contrato de releases — preparação D2
+## Contrato de releases — D2 aplicado
 
 A CI própria valida PRs e pushes em `main`. O Deploy seleciona o SHA atual com CI aprovada, calcula SemVer a partir da última release verificada, constrói uma única imagem, qualifica essa imagem isoladamente e publica seu digest. O rollout usa apenas esse digest, preserva o `.env`, confere readiness e a identidade de versão/commit/build e só então publica tag e manifesto no GitHub.
 
-`workflow_dispatch` começa com `prepare_only: true`: publica o artefato de build sem acessar produção. A ativação exige o bootstrap do helper dedicado e credencial SSH restrita, documentados no repo privado de infraestrutura; a presença deste código não significa que foram aplicados. Não usar o deploy compartilhado antigo como fallback. A produção precisa fornecer `BLOG_DEPLOY_KEY` e `BLOG_SSH_KNOWN_HOSTS` como secrets e `VPS_IP`, `SSH_PORT`, `DEPLOY_USER` como variables. Nunca usar `ssh-keyscan` no rollout para confiar automaticamente numa host key.
+`workflow_dispatch` começa com `prepare_only: true`: publica o artefato de build sem acessar produção. O helper dedicado e a credencial SSH restrita foram instalados no primeiro corte 0.1.0 em 14/09/2026; não repetir o bootstrap. Estado operacional e recuperação ficam no repo privado de infraestrutura. Não usar o deploy compartilhado antigo como fallback. A produção precisa fornecer `BLOG_DEPLOY_KEY` e `BLOG_SSH_KNOWN_HOSTS` como secrets e `VPS_IP`, `SSH_PORT`, `DEPLOY_USER` como variables. Nunca usar `ssh-keyscan` no rollout para confiar automaticamente numa host key.
 
 `GET /api/health` retorna somente status; `GET /api/version` retorna somente SemVer, commit completo e build ID com `Cache-Control: no-store`. As credenciais Spotify ficam exclusivamente no `.env` de produção. Qualificação de imagem e health não certificam a experiência visual, o provedor Spotify ou recuperação de desastre.
 
 O legado `scripts/sync-spotify-env.sh` foi desativado e sempre recusa a sincronização; a rotação de credenciais de produção aguarda uma rotina de manutenção controlada no `vps-bootstrap`, enquanto `scripts/spotify-refresh-token.mjs` continua disponível para obter o refresh token.
 
 Validação local do contrato: `node --test scripts/release-metadata.test.mjs` e `python3 -m unittest discover -s scripts -p 'test_release*.py'`. O build continua `yarn build`; o lint legado mantém a limitação registrada no AGENTS.
+
+Primeiro corte publicado: [v0.1.0](https://github.com/leodotsinc/blog/releases/tag/v0.1.0), com health/version, Spotify e verificação visual após o deploy. A repetição pela chave restrita não recriou o container. Restore independente e uma futura atualização completa pelo runner são provas separadas.
