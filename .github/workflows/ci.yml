@@ -5,13 +5,6 @@ on:
     branches: [main]
   push:
     branches: [main]
-  # Temporary: remove after importing the reviewed lockfile artifact.
-  workflow_dispatch:
-    inputs:
-      maintenance:
-        description: Resolve pinned Next and Sharp security updates only; no build or deploy
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -22,7 +15,6 @@ concurrency:
 
 jobs:
   source:
-    if: github.event_name != 'workflow_dispatch' || inputs.maintenance != true
     name: Source tests and production build
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -45,7 +37,6 @@ jobs:
           NEXT_TELEMETRY_DISABLED: 1
         run: yarn build
   release_contract:
-    if: github.event_name != 'workflow_dispatch' || inputs.maintenance != true
     name: Release publication guards
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -75,104 +66,3 @@ jobs:
             -t blog-review:local .
       - name: Verify image identity, isolated runtime and writable cache
         run: python3 scripts/qualify-image.py blog-review:local
-
-  # Temporary resolver; does not run application code or access production.
-  maintenance:
-    name: Resolve Next 16.3.3 and Sharp 0.35.4 security lockfile
-    if: >-
-      github.event_name == 'workflow_dispatch' && inputs.maintenance == true &&
-      github.repository == 'leodotsinc/blog' &&
-      github.ref == 'refs/heads/infra/blog-semver-releases'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-    env:
-      NEXT_TELEMETRY_DISABLED: '1'
-      YARN_IGNORE_SCRIPTS: '1'
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: '26'
-      - name: Resolve only pinned Next and Sharp updates in a disposable directory
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          mkdir -m 0700 "$RUNNER_TEMP/blog-next-resolution"
-          cp package.json yarn.lock "$RUNNER_TEMP/blog-next-resolution/"
-          # Sharp is transitive: change its existing override, not the direct dependencies.
-          node <<'NODE'
-          const assert = require('node:assert/strict');
-          const fs = require('node:fs');
-          const path = require('node:path');
-          const file = path.join(process.env.RUNNER_TEMP, 'blog-next-resolution/package.json');
-          const manifest = JSON.parse(fs.readFileSync(file, 'utf8'));
-          assert.equal(manifest.resolutions.sharp, '0.35.3');
-          manifest.resolutions.sharp = '0.35.4';
-          fs.writeFileSync(file, JSON.stringify(manifest, null, 2) + '\n');
-          NODE
-          # Separate CLI prefix avoids the runner's global Yarn/Corepack shims.
-          npm install --prefix "$RUNNER_TEMP/blog-yarn-cli" --ignore-scripts \
-            --no-audit --no-fund --package-lock=false yarn@1.22.22
-          test "$(node "$RUNNER_TEMP/blog-yarn-cli/node_modules/yarn/bin/yarn.js" --version)" = 1.22.22
-          node "$RUNNER_TEMP/blog-yarn-cli/node_modules/yarn/bin/yarn.js" \
-            --cwd "$RUNNER_TEMP/blog-next-resolution" upgrade next@16.3.3 \
-            --ignore-scripts --non-interactive --no-progress
-      - name: Verify bounded manifest change and resolved versions
-        shell: bash
-        run: |
-          set -euo pipefail
-          node <<'NODE'
-          const assert = require('node:assert/strict');
-          const fs = require('node:fs');
-          const path = require('node:path');
-          const crypto = require('node:crypto');
-          const dir = path.join(process.env.RUNNER_TEMP, 'blog-next-resolution');
-          const before = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-          const after = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
-          assert.equal(before.dependencies.next, '^16.2.12', 'Source manifest drift: review instead of broadening update');
-          const expected = structuredClone(before);
-          expected.dependencies.next = '16.3.3';
-          expected.resolutions.sharp = '0.35.4';
-          assert.deepEqual(after, expected, 'Only Next and the existing Sharp resolution may change');
-          assert.equal(after.resolutions.sharp, '0.35.4');
-          const installedNext = JSON.parse(fs.readFileSync(path.join(dir, 'node_modules/next/package.json'), 'utf8'));
-          assert.equal(installedNext.version, '16.3.3');
-          const installedSharp = JSON.parse(fs.readFileSync(path.join(dir, 'node_modules/sharp/package.json'), 'utf8'));
-          assert.equal(installedSharp.version, '0.35.4');
-          const lock = fs.readFileSync(path.join(dir, 'yarn.lock'), 'utf8');
-          assert.match(lock, /^next@16\.3\.3:\n  version "16\.3\.3"$/m);
-          assert.doesNotMatch(lock, /^next@[^\n]*16\.2\.12/m);
-          const hash = (file) => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
-          const report = {
-            schema_version: 1, source_sha: process.env.GITHUB_SHA,
-            run_id: process.env.GITHUB_RUN_ID, run_attempt: process.env.GITHUB_RUN_ATTEMPT,
-            node: process.version, yarn: '1.22.22', requested: {next: '16.3.3', sharp_resolution: '0.35.4'},
-            observed: {next: installedNext.version, sharp: installedSharp.version},
-            manifest_only_next_and_sharp_resolution_changed: true, lifecycle_scripts_executed: false,
-            source_package_sha256: hash('package.json'), source_lock_sha256: hash('yarn.lock'),
-            package_sha256: hash(path.join(dir, 'package.json')),
-            lock_sha256: hash(path.join(dir, 'yarn.lock')),
-            application_build_tested: false, image_runtime_tested: false,
-            native_avif_codec_claim: 'not_verified', deployed: false,
-            lock_diff_requires_review: true,
-          };
-          fs.writeFileSync(path.join(dir, 'resolution-report.json'), JSON.stringify(report, null, 2) + '\n');
-          console.log(JSON.stringify(report, null, 2));
-          NODE
-          # The source checkout stays intact; only the temporary manifests change.
-          git diff --exit-code -- package.json yarn.lock
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: blog-next-16.3.3-sharp-0.35.4-lock-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            ${{ runner.temp }}/blog-next-resolution/package.json
-            ${{ runner.temp }}/blog-next-resolution/yarn.lock
-            ${{ runner.temp }}/blog-next-resolution/resolution-report.json
-          if-no-files-found: error
-          retention-days: 3
