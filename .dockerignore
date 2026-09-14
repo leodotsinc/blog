@@ -1,0 +1,24 @@
+# Secrets, operator state and local tooling never enter an image build context.
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+.git
+.github
+.claude
+.codex
+.agents
+node_modules
+.next
+.contentlayer
+out
+coverage
+*.log
+*.pem
+*.key
+*.p12
+*.pfx
+.DS_Store
+AGENTS.md
+CLAUDE.md

@@ -1,7 +1,68 @@
 name: CI
+
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: blog-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  ci:
-    uses: leodotsinc/.github/.github/workflows/ci.yml@main
+  source:
+    name: Source tests and production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '26'
+      - name: Install locked dependencies
+        run: npm install -g corepack && corepack enable && yarn install --frozen-lockfile
+      - name: Test existing lab and release metadata
+        run: |
+          yarn test:lab
+          node --test scripts/release-metadata.test.mjs
+      - name: Production build and TypeScript validation
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+        run: yarn build
+  release_contract:
+    name: Release publication guards
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - run: python3 -m unittest discover -s scripts -p 'test_release*.py'
+  image:
+    name: Linux image and isolated runtime
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Build disposable review image
+        env:
+          REVIEW_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          docker build --platform linux/amd64 --build-arg APP_VERSION=0.1.0 \
+            --build-arg APP_REVISION="$REVIEW_SHA" --build-arg APP_BUILD_ID="$GITHUB_RUN_ID" \
+            -t blog-review:local .
+      - name: Verify image identity, isolated runtime and writable cache
+        run: python3 scripts/qualify-image.py blog-review:local
