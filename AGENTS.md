@@ -54,7 +54,10 @@
 
 - Blog **0.1.0** implantado em 14/09/2026, commit `01990f4d3d0b16fa5832b4340e4da477c9387e4e`, após CI `34864714015` e imagem qualificada no build `34865012930`. A [release v0.1.0](https://github.com/leodotsinc/blog/releases/tag/v0.1.0) registra o manifesto verificado e o digest. Este registro é histórico; confirmar a versão em produção antes de operar.
 - Deploy depende da CI bem-sucedida do SHA atual de main. SemVer parte da última release publicada e verificada: mudanças comuns PATCH, `feat:` MINOR e breaking changes MAJOR. Tags/releases só são publicadas após health e identidade do runtime. Falha de publicação exige reutilizar o artefato original; não reconstruir outra imagem com a mesma versão nem sobrescrever tags.
-- Helper e chave dedicada com comando forçado já instalados. O bootstrap inicial foi concluído; não repeti-lo nem usar o deploy compartilhado legado como fallback. Operação, recuperação, checkpoints e estado da rotina pertencem ao repo privado `vps-bootstrap`.
+- A chave dedicada chama o gateway Cloudbox comum com app fixo; o token GHCR curto
+  segue por stdin e o host apaga o `DOCKER_CONFIG` temporário após o pull. O helper
+  específico continua dono de health, checkpoint e rollback. O bootstrap inicial
+  foi concluído; não repeti-lo. Operação e recuperação pertencem ao `vps-bootstrap`.
 - `/api/health` não chama Spotify; `/api/version` expõe apenas versão, commit e build, com no-store. A validação real incluiu health/version públicos, Spotify, hero em 1440/390 px, menu e navegação. O teste de repetição pela chave restrita preservou o container; isso não é uma execução de rollout em runner GitHub nem restore independente.
 - Next 16.3.3, Sharp 0.35.4 e libheif 1.23.2 foram qualificados na imagem; PNG/JPEG e `/_next/image` exercitados. A troca preservou hero, conteúdo e credenciais. O aviso de depreciação `THREE.Clock` já existia antes; o lint mantém a limitação acima.
 - `scripts/sync-spotify-env.sh` está aposentado e recusa antes de rede/escritas. Rotação de credenciais exige manutenção própria com lock, checkpoint e validação, sem versão fictícia do app; o helper de refresh token foi preservado.
