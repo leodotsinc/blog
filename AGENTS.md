@@ -58,6 +58,10 @@
   segue por stdin e o host apaga o `DOCKER_CONFIG` temporário após o pull. O helper
   específico continua dono de health, checkpoint e rollback. O bootstrap inicial
   foi concluído; não repeti-lo. Operação e recuperação pertencem ao `vps-bootstrap`.
+- O transporte fixa o workflow compartilhado por SHA e conserva erros públicos e
+  checkpoints em artifact por execução/tentativa, inclusive em falha do gateway.
+  A publicação consome `rollout.outputs.result_artifact`. Timeout/desconexão não
+  comprovam rollback: conferir o runtime antes de repetir o manifesto original.
 - `/api/health` não chama Spotify; `/api/version` expõe apenas versão, commit e build, com no-store. A validação real incluiu health/version públicos, Spotify, hero em 1440/390 px, menu e navegação. O teste de repetição pela chave restrita preservou o container; isso não é uma execução de rollout em runner GitHub nem restore independente.
 - Next 16.3.3, Sharp 0.35.4 e libheif 1.23.2 foram qualificados na imagem; PNG/JPEG e `/_next/image` exercitados. A troca preservou hero, conteúdo e credenciais. O aviso de depreciação `THREE.Clock` já existia antes; o lint mantém a limitação acima.
 - `scripts/sync-spotify-env.sh` está aposentado e recusa antes de rede/escritas. Rotação de credenciais exige manutenção própria com lock, checkpoint e validação, sem versão fictícia do app; o helper de refresh token foi preservado.
