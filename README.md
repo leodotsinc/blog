@@ -39,7 +39,7 @@ A CI própria valida PRs e pushes em `main`. O Deploy seleciona o SHA atual com 
 
 `GET /api/health` retorna somente status; `GET /api/version` retorna somente SemVer, commit completo e build ID com `Cache-Control: no-store`. As credenciais Spotify ficam exclusivamente no `.env` de produção. Qualificação de imagem e health não certificam a experiência visual, o provedor Spotify ou recuperação de desastre.
 
-O legado `scripts/sync-spotify-env.sh` foi desativado e sempre recusa a sincronização; a rotação de credenciais de produção aguarda uma rotina de manutenção controlada no `vps-bootstrap`, enquanto `scripts/spotify-refresh-token.mjs` continua disponível para obter o refresh token.
+O legado `scripts/sync-spotify-env.sh` foi desativado e sempre recusa a sincronização; a rotação de credenciais de produção aguarda uma rotina de manutenção controlada no `cloudbox-infra`, enquanto `scripts/spotify-refresh-token.mjs` continua disponível para obter o refresh token.
 
 Validação local do contrato: `node --test scripts/release-metadata.test.mjs` e `python3 -m unittest discover -s scripts -p 'test_release*.py'`. O build continua `yarn build`; o lint legado mantém a limitação registrada no AGENTS.
 

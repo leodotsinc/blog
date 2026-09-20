@@ -57,14 +57,14 @@
 - A chave dedicada chama o gateway Cloudbox comum com app fixo; o token GHCR curto
   segue por stdin e o host apaga o `DOCKER_CONFIG` temporário após o pull. O helper
   específico continua dono de health, checkpoint e rollback. O bootstrap inicial
-  foi concluído; não repeti-lo. Operação e recuperação pertencem ao `vps-bootstrap`.
+  foi concluído; não repeti-lo. Operação e recuperação pertencem ao `cloudbox-infra`.
 - O transporte fixa o workflow compartilhado por SHA e conserva erros públicos e
   checkpoints em artifact por execução/tentativa, inclusive em falha do gateway.
   A publicação consome `rollout.outputs.result_artifact`. Timeout/desconexão não
   comprovam rollback: conferir o runtime antes de repetir o manifesto original.
 - Após a publicação, o workflow compartilhado de reconciliação envia esse recibo
   pela GitHub App `cloudbox-release-reconciler` e aguarda o PR/check/merge
-  allowlisted no `vps-bootstrap`. Falha nessa etapa não apaga a prova de produção:
+  allowlisted no `cloudbox-infra`. Falha nessa etapa não apaga a prova de produção:
   corrigir a reconciliação sem reconstruir ou inventar outra identidade.
 - `/api/health` não chama Spotify; `/api/version` expõe apenas versão, commit e build, com no-store. A validação real incluiu health/version públicos, Spotify, hero em 1440/390 px, menu e navegação. O teste de repetição pela chave restrita preservou o container; isso não é uma execução de rollout em runner GitHub nem restore independente.
 - Next 16.3.3, Sharp 0.35.4 e libheif 1.23.2 foram qualificados na imagem; PNG/JPEG e `/_next/image` exercitados. A troca preservou hero, conteúdo e credenciais. O aviso de depreciação `THREE.Clock` já existia antes; o lint mantém a limitação acima.
