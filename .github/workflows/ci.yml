@@ -32,7 +32,7 @@ jobs:
       - name: Test existing lab and release metadata
         run: |
           yarn test:lab
-          node --test scripts/release-metadata.test.mjs
+          node --test scripts/release-metadata.test.mjs scripts/dependency-security.test.mjs
       - name: Production build and TypeScript validation
         env:
           NEXT_TELEMETRY_DISABLED: 1
