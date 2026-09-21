@@ -256,6 +256,26 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      - name: Record image preparation without deployment permission
+        if: github.event_name == 'workflow_dispatch' && inputs.prepare_only == true && inputs.maintenance_context == ''
+        run: |
+          python3 - <<'PYTHON'
+          import hashlib,json,os,pathlib
+          manifest=json.loads(pathlib.Path('release.json').read_text())
+          digest=hashlib.sha256(json.dumps(manifest,sort_keys=True,separators=(',',':'),ensure_ascii=True,allow_nan=False).encode()).hexdigest()
+          proof={'schema_version':1,'prepare_only':True,'run_id':int(os.environ['GITHUB_RUN_ID']),
+            'run_attempt':int(os.environ['GITHUB_RUN_ATTEMPT']),'source_sha':os.environ['RELEASE_SHA'],'manifest_sha256':digest}
+          pathlib.Path('preparation.json').write_text(json.dumps(proof,sort_keys=True)+'\n')
+          PYTHON
+      - name: Retain authenticated preparation receipt
+        if: github.event_name == 'workflow_dispatch' && inputs.prepare_only == true && inputs.maintenance_context == ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: blog-preparation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: app/preparation.json
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Retain closed maintenance context for final host authorization
         if: inputs.maintenance_context != ''
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
