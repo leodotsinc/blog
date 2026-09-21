@@ -69,3 +69,10 @@
 - `/api/health` não chama Spotify; `/api/version` expõe apenas versão, commit e build, com no-store. A validação real incluiu health/version públicos, Spotify, hero em 1440/390 px, menu e navegação. O teste de repetição pela chave restrita preservou o container; isso não é uma execução de rollout em runner GitHub nem restore independente.
 - Next 16.3.3, Sharp 0.35.4 e libheif 1.23.2 foram qualificados na imagem; PNG/JPEG e `/_next/image` exercitados. A troca preservou hero, conteúdo e credenciais. O aviso de depreciação `THREE.Clock` já existia antes; o lint mantém a limitação acima.
 - `scripts/sync-spotify-env.sh` está aposentado e recusa antes de rede/escritas. Rotação de credenciais exige manutenção própria com lock, checkpoint e validação, sem versão fictícia do app; o helper de refresh token foi preservado.
+
+## Qualified maintenance adoption (cloudbox-infra PR 11)
+
+- Renovate uses the shared `leodotsinc/.github` preset and stays disabled until the Mend installation is verified and overlapping Dependabot version jobs are retired. No AI reviewer or model call is added.
+- PR and release image builds scan the immutable runtime and builder image IDs with pinned Trivy, a fresh database and bounded seven-day sanitized evidence. Unknown/stale results and high/critical findings refuse publication; passing source tests alone is insufficient.
+- The ordinary release gate inspects all commits since the last verified published release, dependency/runtime/workflow paths and GitHub associated-PR metadata. Unqualified maintenance cannot reach production through a squash merge or a later feature commit. Read-only image preparation remains available; there is no calendar or label bypass.
+- This repository's maintenance is not yet qualified for autonomous deployment. Cloudbox must bind the reviewed candidate to its policy, approved window, backup and runtime acceptance before enabling the dedicated executor. These changes do not prove installation or a production maintenance pilot.
