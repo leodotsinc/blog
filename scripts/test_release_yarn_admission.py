@@ -218,6 +218,27 @@ class HttpBoundaryTests(unittest.TestCase):
                 request=opener.return_value.open.call_args.args[0]
                 self.assertEqual(request.full_url,'https://api.github.com/advisories')
                 self.assertEqual(request.get_header('Authorization'),'Bearer synthetic-token')
+    def test_registry_limit_and_cumulative_json_budget_are_separate_and_closed(self):
+        from email.utils import format_datetime
+        class Response:
+            status=200;headers={'Date':format_datetime(datetime.now(timezone.utc))}
+            data=b'{}'+b' '*126
+            def read(self,limit):return self.data[:limit]
+            def __enter__(self):return self
+            def __exit__(self,*args):pass
+        self.assertEqual(A.REGISTRY_LIMIT,16*1024*1024);self.assertEqual(A.JSON_BUDGET,64*1024*1024)
+        response=Response()
+        with patch.object(A.gate,'LIMIT',64),patch.object(A,'REGISTRY_LIMIT',256),patch.object(A,'JSON_BUDGET',256),patch.object(A.urllib.request,'build_opener') as opener:
+            opener.return_value.open.return_value=response
+            with self.assertRaises(ValueError):A.Collector().github('/repos/leodotsinc/blog')
+            collector=A.Collector();self.assertEqual(collector.registry('hono'),{});self.assertEqual(collector.registry('hono'),{})
+            with self.assertRaises(ValueError):collector.registry('hono')
+            response.data=b'{}'+b' '*255
+            with self.assertRaises(ValueError):A.Collector().registry('hono')
+            response.data=b'{"duplicate":1,"duplicate":2}'
+            with self.assertRaises(ValueError):A.Collector().registry('hono')
+            response.data=b'{"value":NaN}'
+            with self.assertRaises(ValueError):A.Collector().registry('hono')
     def test_registry_does_not_receive_github_authorization(self):
         from email.utils import format_datetime
         class Response:

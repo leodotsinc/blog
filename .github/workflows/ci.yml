@@ -39,6 +39,9 @@ jobs:
         run: yarn build
   release_contract:
     name: Release publication guards
+    permissions:
+      contents: read
+      pull-requests: read
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -47,6 +50,19 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - run: python3 -m unittest discover -s scripts -p 'test_release*.py'
+      - name: Record source classification without deployment authorization
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/maintenance-execution.py source-review
+      - name: Retain authenticated source qualification or explicit refusal
+        if: ${{ !cancelled() && hashFiles('source-qualification.json') != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: blog-source-qualification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: source-qualification.json
+          if-no-files-found: error
+          retention-days: 45
   image:
     name: Linux image and isolated runtime
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'

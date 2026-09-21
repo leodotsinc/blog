@@ -58,7 +58,7 @@ def blob(api,sha):
     require(len(raw)==item['size'] and G.git_oid('blob',raw)==sha,'BLOB_INTEGRITY');return raw
 
 
-def snapshot(api,sha):
+def snapshot(api,sha, *, control=False):
     require(isinstance(sha,str) and G.SHA.fullmatch(sha),'COMMIT_SHA')
     commit=api.github(PREFIX+'/git/commits/'+sha);require(commit.get('sha')==sha,'COMMIT_IDENTITY')
     tree=commit.get('tree',{}).get('sha');require(isinstance(tree,str) and G.SHA.fullmatch(tree),'TREE_SHA')
@@ -70,7 +70,7 @@ def snapshot(api,sha):
         require(item.get('type')=='blob' and item.get('path') not in files,'TREE_ENTRY_OR_DUPLICATE')
         files[item['path']]={'mode':item['mode'],'oid':item['sha']}
     result={'schema_version':1,'commit':sha,'tree':tree,'files':files,
-            'contents':{name:blob(api,files[name]['oid']).decode() for name in G.ALLOWED}}
+            'contents':{name:blob(api,files[name]['oid']).decode() for name in G.ALLOWED|({G.CONTROL} if control else set())}}
     G.validate_snapshot(result);return result
 
 

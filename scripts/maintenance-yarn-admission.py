@@ -23,6 +23,8 @@ SPEC=importlib.util.spec_from_file_location('yarn_gate',Path(__file__).with_name
 gate=importlib.util.module_from_spec(SPEC);SPEC.loader.exec_module(gate)
 MSPEC=importlib.util.spec_from_file_location('release_metadata',Path(__file__).with_name('release_manifest.py'))
 manifest_contract=importlib.util.module_from_spec(MSPEC);MSPEC.loader.exec_module(manifest_contract)
+REGISTRY_LIMIT=16*1024*1024
+JSON_BUDGET=64*1024*1024
 REPO='leodotsinc/blog';HASH=re.compile(r'[0-9a-f]{64}\Z');SHA=gate.SHA
 REQUEST_KEYS={'schema_version','service','phase','request_id','issued_at','expires_at','policy_sha256','window','source_pr','baseline','base_manifest'}
 CONFIG_KEYS={'schema_version','service','enabled','scheduler_app_id','actor_id','sender_id','policy_sha256','host_qualification_sha256','minimum_release_age_days','renovate_actor_id','repository_id','trusted_code','window'}
@@ -44,8 +46,8 @@ def fresh(value,now,maximum=timedelta(hours=24)):
     require(timedelta(0)<=now-stamp(value)<=maximum,'STALE_OR_FUTURE_EVIDENCE')
 
 
-def envelope(request):
-    exact(request,REQUEST_KEYS,'REQUEST_SCHEMA')
+def envelope(request, *, execution=False):
+    exact(request,REQUEST_KEYS|({'control_sha256'} if execution else set()),'REQUEST_SCHEMA')
     require(type(request['schema_version']) is int and request['schema_version']==1 and
             request['service']=='blog' and request['phase']=='prepare','PREPARATION_ONLY')
     exact(request['source_pr'],{'number','base_sha','head_sha','tree_sha'},'PR_SCHEMA')
@@ -57,8 +59,9 @@ def envelope(request):
     require(m['service']=='blog' and m['source_repository']=='https://github.com/'+REPO and
             m['application_kind']=='first_party' and m['app_version']==m['release_version'] and
             m['compose_project']=='leodotsdev' and m['deployment']['status']=='verified','BASELINE_IDENTITY')
-    require(b['git_sha']==m['git_sha']==pr['base_sha'] and b['image']==m['image'] and
+    require(b['git_sha']==m['git_sha'] and (execution or m['git_sha']==pr['base_sha']) and b['image']==m['image'] and
             b['receipt_sha256']==gate.sha256(m),'BASELINE_BINDING')
+    if execution:require(isinstance(request['control_sha256'],str) and HASH.fullmatch(request['control_sha256']),'CONTROL_PIN_REQUIRED')
     identity={'app':'blog','baseline_receipt_sha256':b['receipt_sha256'],'head_sha':pr['head_sha'],'tree_sha':pr['tree_sha']}
     require(request['request_id']==gate.sha256(identity) and isinstance(request['policy_sha256'],str) and HASH.fullmatch(request['policy_sha256']),'REQUEST_ID_OR_POLICY')
     exact(request['window'],{'start','end','timezone'},'WINDOW_SCHEMA')
@@ -68,14 +71,14 @@ def envelope(request):
     return request
 
 
-def validate_request(request,config,event,env,production_receipt,now):
-    envelope(request)
+def validate_request(request,config,event,env,production_receipt,now, *, execution=False):
+    envelope(request,execution=execution)
     exact(config,CONFIG_KEYS,'CONFIG_SCHEMA')
     require(type(config['schema_version']) is int and config['schema_version']==1 and config['service']=='blog','CONFIG_IDENTITY')
     require(type(config['enabled']) is bool and config['scheduler_app_id']=='5019669' and
             config['actor_id']==config['sender_id']=='332011818' and config['minimum_release_age_days']==14 and
             config['renovate_actor_id']=='29139614' and type(config['repository_id']) is int and config['repository_id']==1021194725 and isinstance(config['trusted_code'],dict),'CONFIG_SCHEDULER_OR_AGE')
-    exact(request,REQUEST_KEYS,'REQUEST_SCHEMA')
+    exact(request,REQUEST_KEYS|({'control_sha256'} if execution else set()),'REQUEST_SCHEMA')
     require(type(request['schema_version']) is int and request['schema_version']==1 and request['service']=='blog' and request['phase']=='prepare','PREPARATION_ONLY')
     require(env.get('GITHUB_REPOSITORY')==REPO and env.get('GITHUB_REF')=='refs/heads/main' and
             env.get('GITHUB_EVENT_NAME')=='workflow_dispatch' and env.get('GITHUB_RUN_ATTEMPT')=='1','EVENT_REF_OR_RETRY_REFUSED')
@@ -92,7 +95,7 @@ def validate_request(request,config,event,env,production_receipt,now):
             m.get('source_repository')=='https://github.com/'+REPO and m.get('application_kind')=='first_party' and
             m.get('deployment',{}).get('status')=='verified' and m['deployment'].get('observed_image')==m.get('image') and
             isinstance(m.get('image'),str) and re.fullmatch(r'ghcr.io/leodotsinc/blog@sha256:[0-9a-f]{64}',m['image']),'BASELINE_UNVERIFIED')
-    require(b['git_sha']==m.get('git_sha')==pr['base_sha']==env.get('GITHUB_SHA') and
+    require(b['git_sha']==m.get('git_sha') and (execution or b['git_sha']==pr['base_sha']) and pr['base_sha']==env.get('GITHUB_SHA') and
             b['image']==m['image'] and b['receipt_sha256']==gate.sha256(m),'BASELINE_DRIFT')
     identity={'app':'blog','baseline_receipt_sha256':b['receipt_sha256'],'head_sha':pr['head_sha'],'tree_sha':pr['tree_sha']}
     require(request['request_id']==gate.sha256(identity) and isinstance(request['policy_sha256'],str) and
@@ -103,7 +106,9 @@ def validate_request(request,config,event,env,production_receipt,now):
     w=request['window'];start,end=stamp(w['start']),stamp(w['end'])
     require(w['timezone']=='America/Sao_Paulo' and start<=now<expires<=end and timedelta(0)<end-start<=timedelta(hours=4),'WINDOW_OR_EXPIRY')
     # Interval validation is not approval of its calendar; no mutation is reachable.
-    require(config['enabled'] is False and config['host_qualification_sha256'] is None,'ACTIVATION_NOT_IMPLEMENTED')
+    if execution:
+        require(config['enabled'] is True and isinstance(config['host_qualification_sha256'],str) and HASH.fullmatch(config['host_qualification_sha256']),'HOST_OR_RECEIVER_NOT_QUALIFIED')
+    else:require(config['enabled'] is False and config['host_qualification_sha256'] is None,'ACTIVATION_NOT_IMPLEMENTED')
     return {'schema_version':1,'service':'blog','request_id':request['request_id'],'status':'inactive',
             'preparation_authorized':False,'deployment_authorized':False,'blocker':'HOST_AND_RECEIVER_NOT_QUALIFIED'}
 
@@ -113,7 +118,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 class Collector:
-    def __init__(self,token=None):self.token=token;self.calls=0
+    def __init__(self,token=None):self.token=token;self.calls=0;self.json_bytes=0
     def get(self,host,path):
         require(host in ('api.github.com','registry.npmjs.org') and path.startswith('/') and not path.startswith('//'),'FIXED_API_ORIGIN')
         self.calls+=1;require(self.calls<=65,'API_REQUEST_LIMIT')
@@ -127,9 +132,15 @@ class Collector:
                 remote_date=parsedate_to_datetime(response.headers.get('Date',''))
                 require(remote_date.tzinfo is not None and abs(observed-remote_date)<=timedelta(minutes=15) and
                         0<=int(response.headers.get('Age','0'))<=3600,'STALE_HTTP_RESPONSE')
-                raw=response.read(gate.LIMIT+1)
-                require(len(raw)<=gate.LIMIT and response.status==200,'API_UNKNOWN_OR_LIMIT')
-                return gate.decode(raw.decode())
+                # Registry packuments for Hono/electron already exceed 4 MiB.
+                # Keep separate per-response and cumulative JSON budgets; no
+                # raw metadata is persisted and timestamps still come from npm.
+                limit=REGISTRY_LIMIT if host=='registry.npmjs.org' else gate.LIMIT
+                raw=response.read(limit+1);self.json_bytes+=len(raw)
+                require(len(raw)<=limit and self.json_bytes<=JSON_BUDGET and response.status==200,'API_UNKNOWN_OR_LIMIT')
+                if host=='api.github.com':return gate.decode(raw.decode())
+                return json.loads(raw.decode(),object_pairs_hook=gate.unique,
+                                  parse_constant=lambda _:(_ for _ in ()).throw(gate.Refusal('NONFINITE_JSON')))
         except Exception:raise gate.Refusal('API_UNAVAILABLE_OR_MALFORMED') from None
     def github(self,path):return self.get('api.github.com',path)
     def registry(self,name):return self.get('registry.npmjs.org','/'+urllib.parse.quote(name,safe=''))
