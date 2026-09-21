@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """One personal, reviewed adoption release; never a maintenance policy exception.
 
-The host requires an independently installed, exact baseline/target approval.
-This program only authenticates a previously prepared image and copies its bytes.
+The personal pilot requires the operator to install and verify its exact host
+fence before dispatch. The ordinary transport cannot require an absent fence.
+This program authenticates a previously prepared image and copies its bytes.
 """
 import argparse
 from datetime import datetime,timedelta,timezone
@@ -75,6 +76,7 @@ def registry(changes,api,now):
     for change in changes:
         name,version=change['name'],change['version'];data=api.registry(name);item=data.get('versions',{}).get(version,{})
         require(data.get('name')==item.get('name')==name and item.get('version')==version and item.get('dist',{}).get('integrity')==change['integrity'],'BOOTSTRAP_REGISTRY_IDENTITY')
+        require(item.get('deprecated') in (None,''),'BOOTSTRAP_DEPRECATED_VERSION')
         published=A.stamp(data.get('time',{}).get(version))
         require(now-published>=timedelta(days=14),'BOOTSTRAP_IMMATURE_VERSION')
         require(api.advisories(name,version)==[],'BOOTSTRAP_OFFICIAL_ADVISORY')

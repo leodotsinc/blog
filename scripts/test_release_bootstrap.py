@@ -57,6 +57,8 @@ class BootstrapTests(unittest.TestCase):
             def advisories(self,*args):return []
         api=API();B.registry([change],api,NOW)
         with patch.object(api,'advisories',return_value=[{'ghsa_id':'GHSA-synthetic'}]),self.assertRaisesRegex(G.Refusal,'OFFICIAL_ADVISORY'):B.registry([change],api,NOW)
+        metadata=api.registry('toml');metadata['versions']['4.2.0']['deprecated']='unsupported'
+        with patch.object(api,'registry',return_value=metadata),self.assertRaisesRegex(G.Refusal,'DEPRECATED'):B.registry([change],api,NOW)
         metadata=api.registry('toml');metadata['time']['4.2.0']=NOW.isoformat()
         with patch.object(api,'registry',return_value=metadata),self.assertRaisesRegex(G.Refusal,'IMMATURE'):B.registry([change],api,NOW)
         metadata['time']['4.2.0']=(NOW-timedelta(days=30)).isoformat();metadata['versions']['4.2.0']['dist']['integrity']='sha512-changed'
