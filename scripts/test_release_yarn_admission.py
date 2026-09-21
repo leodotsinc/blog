@@ -225,8 +225,10 @@ class HttpBoundaryTests(unittest.TestCase):
             def read(self,limit):return b'{}'
             def __enter__(self):return self
             def __exit__(self,*args):pass
-        with patch.object(A.urllib.request,'build_opener') as opener:
+        with patch.dict(os.environ,{'HTTP_PROXY':'http://proxy.example.invalid:8080','HTTPS_PROXY':'http://proxy.example.invalid:8080'}),patch.object(A.urllib.request,'build_opener') as opener:
             opener.return_value.open.return_value=Response();A.Collector('synthetic-token').registry('qs')
             self.assertIsNone(opener.return_value.open.call_args.args[0].get_header('Authorization'))
+            self.assertIsInstance(opener.call_args.args[0],A.urllib.request.ProxyHandler)
+            self.assertEqual(opener.call_args.args[0].proxies,{})
 
 if __name__=='__main__':unittest.main()

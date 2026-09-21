@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 import zipfile
 
 import test_release_yarn_admission as F
@@ -122,6 +123,14 @@ class IntegratedObservation(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'ARTIFACT_MISSING'):self.observe()
         self.api.rewrite=lambda p,v:v
         with self.assertRaises(ValueError):self.observe(clock=lambda:NOW+timedelta(hours=2))
+    def test_release_and_actions_downloads_use_distinct_media_types(self):
+        from types import SimpleNamespace
+        raw=b'synthetic artifact';metadata={'size':len(raw),'digest':'sha256:'+hashlib.sha256(raw).hexdigest()}
+        for path,media in [('/releases/assets/1','application/octet-stream'),('/actions/artifacts/2/zip','application/vnd.github+json')]:
+            with patch.object(R.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout=raw)) as run:
+                self.assertEqual(R.GitHub('synthetic-token').binary(R.PREFIX+path,metadata,100),raw)
+                args=run.call_args.args[0];self.assertIn('Accept: '+media,args);self.assertNotIn('synthetic-token',args)
+
     def test_workflow_is_read_only_serialized_and_has_no_candidate_checkout(self):
         text=(ROOT/'.github/workflows/maintenance.yml').read_text()
         self.assertIn('group: blog-production-release',text);self.assertIn('cancel-in-progress: false',text);self.assertIn('ref: ${{ github.sha }}',text)

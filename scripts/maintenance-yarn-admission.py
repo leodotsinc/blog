@@ -122,7 +122,7 @@ class Collector:
             headers['X-GitHub-Api-Version']='2022-11-28'
             if self.token:headers['Authorization']='Bearer '+self.token
         try:
-            with urllib.request.build_opener(NoRedirect()).open(urllib.request.Request('https://'+host+path,headers=headers),timeout=15) as response:
+            with urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect()).open(urllib.request.Request('https://'+host+path,headers=headers),timeout=15) as response:
                 observed=datetime.now(timezone.utc)
                 remote_date=parsedate_to_datetime(response.headers.get('Date',''))
                 require(remote_date.tzinfo is not None and abs(observed-remote_date)<=timedelta(minutes=15) and

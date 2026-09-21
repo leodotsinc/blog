@@ -43,7 +43,8 @@ class GitHub(A.Collector):
         env.update(GH_HOST='github.com',GH_TOKEN=self.token or '')
         with tempfile.TemporaryDirectory(prefix='blog-readonly-gh-') as private:
             env.update(GH_CONFIG_DIR=private+'/config',XDG_STATE_HOME=private+'/state')
-            result=subprocess.run(['gh','api',path,'-H','Accept: application/octet-stream'],env=env,capture_output=True,timeout=20)
+            media='application/octet-stream' if '/releases/assets/' in path else 'application/vnd.github+json'
+            result=subprocess.run(['gh','api',path,'-H','Accept: '+media],env=env,capture_output=True,timeout=20)
         require(result.returncode==0 and 0<len(result.stdout)<=limit and
                 'sha256:'+hashlib.sha256(result.stdout).hexdigest()==digest,'BINARY_DOWNLOAD_OR_DIGEST')
         return result.stdout
