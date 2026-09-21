@@ -29,3 +29,22 @@ test('CVE-2026-77465 deeply nested TOML returns a bounded parse error', () => {
     return true;
   });
 });
+
+const qs = require('qs');
+
+test('qs constructor-shaped input can be serialized without a TypeError', () => {
+  const parsed = qs.parse('x%5Bconstructor%5D%5BisBuffer%5D=y', { plainObjects: true });
+  assert.equal(Object.getPrototypeOf(parsed), null);
+  assert.doesNotThrow(() => qs.stringify(parsed));
+  assert.deepEqual(qs.parse(qs.stringify(parsed), { plainObjects: true }), parsed);
+  assert.equal(Object.prototype.isBuffer, undefined);
+});
+
+test('qs enforces arrayLimit for combined bracket and comma input', () => {
+  const options = { comma: true, arrayLimit: 3, throwOnLimitExceeded: true };
+  assert.throws(() => qs.parse('a[]=1,2,3,4', options), RangeError);
+  assert.deepEqual(qs.parse('a[]=1,2,3', options), { a: [['1', '2', '3']] });
+  assert.deepEqual(qs.parse('page=2&filter[category]=writing'), {
+    page: '2', filter: { category: 'writing' },
+  });
+});
