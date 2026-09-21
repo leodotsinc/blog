@@ -55,6 +55,9 @@ class SourceTests(unittest.TestCase):
         p,old,new=fixtures();p['dependencies']['express']='^5.0.2';new['express@^5.0.2']=item('express','5.0.2',{'qs':'^6.14.0'});self.assertEqual(len(self.classify(p=p,new=new)['changes']),3)
     def test_global_resolution_patch_is_bound_to_lock(self):
         p,old,new=fixtures();p['resolutions']['qs']='6.16.0';new['qs@6.16.0']=new['qs@^6.14.0'];self.classify(p=p,new=new)
+        new['qs@6.14.0']=item('qs','6.14.0')
+        with self.assertRaisesRegex(G.Refusal,'RESOLUTION_LOCK_DRIFT'):self.classify(p=p,new=new)
+        del new['qs@6.14.0']
         new['qs@6.16.0']=item('qs','6.15.2')
         with self.assertRaisesRegex(G.Refusal,'RESOLUTION_LOCK_DRIFT'):self.classify(p=p,new=new)
     def test_transitive_major_and_downgrade_refused(self):

@@ -258,7 +258,8 @@ def classify(before, after, verified_baseline):
     for name,value in changed_resolutions.items():
         require(NAME.fullmatch(name),'SCOPED_RESOLUTION_REQUIRES_REVIEW');version(value)
         if name in ares:compatible(ares[name],value)
-        require(name+'@'+value in updated and updated[name+'@'+value]['version']==value,'RESOLUTION_LOCK_DRIFT')
+        require(name+'@'+value in updated and updated[name+'@'+value]['version']==value and
+                all(item['version']==value for selector,item in updated.items() if split_selector(selector)[0]==name),'RESOLUTION_LOCK_DRIFT')
     oldnodes, oldedges=graph(package,lock);newnodes,newedges=graph(candidate,updated)
     for selector in set(lock)&set(updated):
         if lock[selector]['version']!=updated[selector]['version']:
