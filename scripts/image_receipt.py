@@ -15,7 +15,7 @@ import zipfile
 REPOSITORY = 'leodotsinc/blog'
 CHECKS = ['readiness', 'public_version_identity', 'nonroot_runtime', 'writable_image_cache',
           'native_codec_versions', 'png_jpeg_processing', 'next_image_optimization', 'home_http']
-HARNESS = ('scripts/qualify-image.py', 'scripts/image_receipt.py')
+HARNESS = ('scripts/qualify-image.py', 'scripts/image_receipt.py', 'scripts/release_manifest.py')
 LIMIT = 16384
 
 
