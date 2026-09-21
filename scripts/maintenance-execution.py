@@ -182,6 +182,37 @@ def preflight(value,request,config,event,env,api,root,at,clock=now):
     return delta
 
 
+def source_review(event,env,api,root,local,at):
+    """CI source analysis; trusted consumers authenticate its producer separately."""
+    pr=event.get('pull_request',{})
+    head=pr.get('head',{}).get('sha');producer=pr.get('base',{}).get('sha')
+    result={'schema_version':1,'repository':R.REPO,'run_id':int(env['GITHUB_RUN_ID']),
+            'run_attempt':int(env['GITHUB_RUN_ATTEMPT']),'producer_commit':head,'producer_base':producer,
+            'head_sha':head,'tree_sha':None,'baseline_commit':None,'control_sha256':None,
+            'baseline_receipt_sha256':None,'classification':None,'code_sha256':{},
+            'observed_at':at.isoformat(),'status':'refused','code':'SOURCE_REVIEW_INCOMPLETE'}
+    try:
+        require(env.get('GITHUB_REPOSITORY')==R.REPO and env.get('GITHUB_EVENT_NAME')=='pull_request' and
+                isinstance(head,str) and G.SHA.fullmatch(head) and isinstance(producer,str) and G.SHA.fullmatch(producer),'SOURCE_REVIEW_EVENT')
+        G.validate_snapshot(local);require(local['commit']==head,'CI_CHECKOUT_HEAD_MISMATCH');result['tree_sha']=local['tree']
+        for name in sorted(CODE):
+            raw=(root/name).read_bytes();entry=local['files'].get(name,{})
+            require(entry.get('mode')=='100644' and G.git_oid('blob',raw)==entry.get('oid'),'CI_SOURCE_CLOSURE_DRIFT')
+            result['code_sha256'][name]=hashlib.sha256(raw).hexdigest()
+        manifest=R.published_baseline(api);result.update(baseline_commit=manifest['git_sha'],baseline_receipt_sha256=G.sha256(manifest))
+        producer_snapshot=R.snapshot(api,producer,control=True)
+        raw=producer_snapshot['contents'][G.CONTROL];config=G.decode(raw);result['control_sha256']=hashlib.sha256(raw.encode()).hexdigest()
+        request={'source_pr':{'number':pr['number'],'base_sha':producer,'head_sha':head,'tree_sha':local['tree']},
+                 'baseline':{'git_sha':manifest['git_sha']},'control_sha256':result['control_sha256']}
+        R.source_pr(api,request,config)
+        require(api.github(PREFIX+'/git/ref/heads/main').get('object',{}).get('sha')==producer,'SOURCE_REVIEW_BASE_DRIFT')
+        delta,_=source(request,config,api)
+        result.update(status='passed',code=None,classification=delta)
+    except Exception as error:
+        message=str(error);result['code']=message if re.fullmatch(r'[A-Z][A-Z0-9_]{2,80}',message) else 'SOURCE_REVIEW_UNKNOWN'
+    return result
+
+
 def write(path,value):
     path.write_bytes(G.canonical(value)+b'\n')
 
@@ -194,10 +225,17 @@ def output(**values):
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('command',choices=['validate','prepare','merge','preflight'])
-    parser.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[1]);parser.add_argument('--request',type=Path,required=True)
+    parser=argparse.ArgumentParser();parser.add_argument('command',choices=['validate','prepare','merge','preflight','source-review'])
+    parser.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[1]);parser.add_argument('--request',type=Path);parser.add_argument('--output',type=Path,default=Path('source-qualification.json'))
     parser.add_argument('--prepared',type=Path,default=Path('maintenance-prepared.json'));parser.add_argument('--journal',type=Path,default=Path('maintenance-outcome.json'))
     parser.add_argument('--context',type=Path,default=Path('maintenance-context.json'));args=parser.parse_args()
+    if args.command=='source-review':
+        event=G.decode(Path(os.environ['GITHUB_EVENT_PATH']).read_text());head=event.get('pull_request',{}).get('head',{}).get('sha')
+        require(isinstance(head,str) and G.SHA.fullmatch(head),'SOURCE_REVIEW_EVENT')
+        require(G.git('rev-parse','HEAD',cwd=args.root).decode().strip()==head,'CI_CHECKOUT_HEAD_MISMATCH')
+        result=source_review(event,dict(os.environ),API(os.environ.get('GH_TOKEN')),args.root,G.collect(head,cwd=args.root),now())
+        write(args.output,result);print(json.dumps({'status':result['status'],'code':result['code']}));return
+    require(args.request is not None,'REQUEST_REQUIRED')
     request=G.decode(args.request.read_text());config=G.decode((args.root/G.CONTROL).read_text());event=G.decode(Path(os.environ['GITHUB_EVENT_PATH']).read_text());env=dict(os.environ)
     identity(request,config,event,env,args.root,now())
     if args.command=='validate':return

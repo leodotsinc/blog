@@ -80,6 +80,16 @@ class Execution(unittest.TestCase):
         self.assertEqual(set(context),E.CONTEXT_KEYS)
         result=E.preflight(context,self.request,self.config,self.event,self.env,self.api,self.root,NOW,clock=lambda:NOW)
         self.assertEqual(result['delta_sha256'],proof['delta']['delta_sha256'])
+    def test_source_artifact_preserves_cumulative_identity_and_explicit_refusal(self):
+        env={**self.env,'GITHUB_EVENT_NAME':'pull_request','GITHUB_RUN_ID':'100'}
+        event={'pull_request':{'number':128,'head':{'sha':H},'base':{'sha':B}}}
+        result=E.source_review(event,env,self.api,self.root,self.head,NOW)
+        self.assertEqual(result['status'],'passed');self.assertEqual(result['baseline_commit'],A);self.assertEqual(result['producer_base'],B)
+        self.assertEqual(result['producer_commit'],H);self.assertEqual(len(result['code_sha256']),13)
+        self.assertEqual(result['classification']['control']['sha256'],self.request['control_sha256'])
+        self.api.main=M;denied=E.source_review(event,env,self.api,self.root,self.head,NOW)
+        self.assertEqual(denied['status'],'refused');self.assertIsNone(denied['classification']);self.assertEqual(denied['code'],'SOURCE_REVIEW_BASE_DRIFT')
+        self.assertEqual(self.api.mutations,[])
     def test_disabled_or_unqualified_config_refuses_before_network(self):
         for key,value in [('enabled',False),('host_qualification_sha256',None),('scheduler_app_id','1')]:
             original=self.config[key];self.config[key]=value
