@@ -36,7 +36,7 @@ class API(F.FakeCollector):
             for name,raw in snap['contents'].items():self.rows[snap['files'][name]['oid']]=raw.encode()
         for name in R.CODE:self.rows[before['files'][name]['oid']]=('trusted '+name).encode()
         self.run={'id':100,'run_attempt':1,'head_sha':F.H,'repository':{'id':1021194725,'full_name':R.REPO},'path':'.github/workflows/ci.yml','event':'pull_request','status':'completed','conclusion':'success','updated_at':NOW.isoformat()}
-        security={stage+'/security.json':{'schema_version':1,'status':'passed','image':'sha256:'+('a' if stage=='runtime' else 'b')*64,'packages':100,'observed_at':NOW.isoformat(),'database_updated_at':NOW.isoformat(),'counts':{'CRITICAL':0,'HIGH':0,'MEDIUM':0,'LOW':0,'UNKNOWN':0}} for stage in ('runtime','builder')}
+        security={stage+'/security.json':{'schema_version':1,'status':'passed','image':'sha256:'+('a' if stage=='runtime' else 'b')*64,'packages':100,'findings':[],'report_sha256':'c'*64,'observed_at':NOW.isoformat(),'database_updated_at':NOW.isoformat(),'counts':{'CRITICAL':0,'HIGH':0,'MEDIUM':0,'LOW':0,'UNKNOWN':0}} for stage in ('runtime','builder')}
         functional=I.make_receipt('sha256:'+'a'*64,{'version':'0.1.0','revision':F.H,'build_id':'100'},
                                  {'next':'16.3.3','sharp':'0.35.4','heif':'1.23.2'},
                                  {'run_id':'100','run_attempt':1,'workflow':'ci.yml','job':'image'})
@@ -123,6 +123,37 @@ class IntegratedObservation(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'ARTIFACT_MISSING'):self.observe()
         self.api.rewrite=lambda p,v:v
         with self.assertRaises(ValueError):self.observe(clock=lambda:NOW+timedelta(hours=2))
+    def test_evidence_expiring_during_collection_refuses_inside_valid_window(self):
+        self.api.run['updated_at']=(NOW-timedelta(hours=24)+timedelta(minutes=1)).isoformat()
+        with self.assertRaisesRegex(ValueError,'STALE_OR_FUTURE_EVIDENCE'):self.observe(clock=lambda:NOW+timedelta(minutes=2))
+        self.api.run['updated_at']=NOW.isoformat()
+        with self.assertRaisesRegex(ValueError,'STALE_OR_FUTURE_EVIDENCE'):self.observe(clock=lambda:NOW+timedelta(minutes=21))
+        original=self.api.binary_values[2]
+        with zipfile.ZipFile(io.BytesIO(original)) as archive:
+            values={name:json.loads(archive.read(name)) for name in archive.namelist()}
+        for field in ('observed_at','database_updated_at'):
+            changed=copy.deepcopy(values);changed['runtime/security.json'][field]=(NOW-timedelta(hours=24)+timedelta(minutes=1)).isoformat()
+            raw=packed(changed);self.api.binary_values[2]=raw;self.api.artifacts[0]['digest']='sha256:'+hashlib.sha256(raw).hexdigest();self.api.artifacts[0]['size_in_bytes']=len(raw)
+            with self.subTest(field=field),self.assertRaisesRegex(ValueError,'STALE_OR_FUTURE_EVIDENCE'):self.observe(clock=lambda:NOW+timedelta(minutes=2))
+
+    def test_security_database_ttl_and_findings_consistency(self):
+        original=self.api.binary_values[2]
+        with zipfile.ZipFile(io.BytesIO(original)) as archive:
+            values={name:json.loads(archive.read(name)) for name in archive.namelist()}
+        for kind in ('database_old','observed_old','report_hash','unknown_severity','count_mismatch'):
+            changed=copy.deepcopy(values);proof=changed['runtime/security.json']
+            if kind=='database_old':proof['database_updated_at']=(NOW-timedelta(hours=24,seconds=1)).isoformat()
+            if kind=='observed_old':proof['observed_at']=(NOW-timedelta(hours=24,seconds=1)).isoformat()
+            if kind=='report_hash':proof['report_sha256']='not-a-hash'
+            if kind in ('unknown_severity','count_mismatch'):
+                proof['findings']=[{'VulnerabilityID':'CVE-synthetic','PkgName':'qs','InstalledVersion':'6.16.0','FixedVersion':'','Severity':'INVALID' if kind=='unknown_severity' else 'MEDIUM'}]
+            raw=packed(changed);metadata={**self.api.artifacts[0],'digest':'sha256:'+hashlib.sha256(raw).hexdigest()}
+            with self.subTest(kind=kind),self.assertRaises(ValueError):R.security_proof(raw,metadata,self.api.run,NOW,1021194725)
+        # Exact 24h is accepted; one second over is refused above.
+        values['runtime/security.json']['database_updated_at']=(NOW-timedelta(hours=24)).isoformat()
+        raw=packed(values);metadata={**self.api.artifacts[0],'digest':'sha256:'+hashlib.sha256(raw).hexdigest()}
+        R.security_proof(raw,metadata,self.api.run,NOW,1021194725)
+
     def test_release_and_actions_downloads_use_distinct_media_types(self):
         from types import SimpleNamespace
         raw=b'synthetic artifact';metadata={'size':len(raw),'digest':'sha256:'+hashlib.sha256(raw).hexdigest()}

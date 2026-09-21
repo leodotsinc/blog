@@ -146,9 +146,17 @@ def security_proof(raw,metadata,run,now,repository_id):
     for proof in proofs.values():
         require(type(proof.get('schema_version')) is int and proof.get('schema_version')==1 and proof.get('status')=='passed' and type(proof.get('packages')) is int and proof['packages']>0 and
                 isinstance(proof.get('image'),str) and re.fullmatch(r'sha256:[0-9a-f]{64}',proof['image']),'SECURITY_PROOF_SCHEMA')
-        A.fresh(proof.get('observed_at'),now);A.fresh(proof.get('database_updated_at'),now,timedelta(hours=36))
+        A.fresh(proof.get('observed_at'),now);A.fresh(proof.get('database_updated_at'),now)
         counts=proof.get('counts',{});A.exact(counts,{'CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN'},'SECURITY_COUNTS')
         require(all(type(x) is int and x>=0 for x in counts.values()) and counts['CRITICAL']==counts['HIGH']==counts['UNKNOWN']==0,'SECURITY_FAILED')
+        findings=proof.get('findings');require(isinstance(findings,list) and len(findings)<=1000 and
+                isinstance(proof.get('report_sha256'),str) and A.HASH.fullmatch(proof['report_sha256']),'SECURITY_REPORT_SHAPE')
+        observed={key:0 for key in counts}
+        for finding in findings:
+            A.exact(finding,{'VulnerabilityID','PkgName','InstalledVersion','FixedVersion','Severity'},'SECURITY_FINDING_SCHEMA')
+            require(all(isinstance(value,str) and len(value)<=1024 for value in finding.values()) and finding['Severity'] in observed,'SECURITY_FINDING_VALUE')
+            observed[finding['Severity']]+=1
+        require(observed==counts,'SECURITY_FINDING_COUNT_MISMATCH')
     return proofs
 
 
@@ -187,6 +195,11 @@ def observe(request,config,event,env,api,root,now,reader,clock=lambda:datetime.n
     source_pr(api,request,config)
     main=api.github(PREFIX+'/git/ref/heads/main');require(main.get('object',{}).get('sha')==baseline['git_sha'],'MAIN_CHANGED_DURING_COLLECTION')
     finished=clock();calendar(config,request,finished);require(finished<A.stamp(request['expires_at']),'REQUEST_EXPIRED_DURING_COLLECTION')
+    A.fresh(ci['updated_at'],finished)
+    for proof in images['security'].values():
+        A.fresh(proof['observed_at'],finished);A.fresh(proof['database_updated_at'],finished)
+    A.fresh(images['functional']['observed_at'],finished)
+    for proof in registry:A.fresh(proof['checked_at'],finished,timedelta(minutes=20))
     return {'schema_version':1,'service':'blog','status':'observed_inactive','request_id':request['request_id'],
             'delta':delta,'registry':registry,'ci':ci,'review_image_evidence':images,'observed_at':finished.isoformat(),
             'preparation_authorized':False,'deployment_authorized':False,'blocker':'HOST_AND_MUTATING_RECEIVER_NOT_QUALIFIED',
