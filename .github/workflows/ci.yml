@@ -5,6 +5,7 @@ on:
     branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -48,7 +49,7 @@ jobs:
       - run: python3 -m unittest discover -s scripts -p 'test_release*.py'
   image:
     name: Linux image and isolated runtime
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -58,7 +59,7 @@ jobs:
           persist-credentials: false
       - name: Build disposable review image
         env:
-          REVIEW_SHA: ${{ github.event.pull_request.head.sha }}
+          REVIEW_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           docker build --platform linux/amd64 --build-arg APP_VERSION=0.1.0 \
