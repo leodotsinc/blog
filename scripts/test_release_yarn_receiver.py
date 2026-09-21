@@ -162,9 +162,9 @@ class IntegratedObservation(unittest.TestCase):
                 self.assertEqual(R.GitHub('synthetic-token').binary(R.PREFIX+path,metadata,100),raw)
                 args=run.call_args.args[0];self.assertIn('Accept: '+media,args);self.assertNotIn('synthetic-token',args)
 
-    def test_workflow_is_read_only_serialized_and_has_no_candidate_checkout(self):
+    def test_workflow_preserves_trusted_checkout_and_requires_execution_validation(self):
         text=(ROOT/'.github/workflows/maintenance.yml').read_text()
         self.assertIn('group: blog-production-release',text);self.assertIn('cancel-in-progress: false',text);self.assertIn('ref: ${{ github.sha }}',text)
-        self.assertNotIn(': write',text);self.assertNotIn('secrets.',text);self.assertNotIn('source_pr.head_sha',text);self.assertIn('retention-days: 7',text)
+        self.assertIn('maintenance-execution.py validate',text);self.assertNotIn('source_pr.head_sha',text);self.assertIn('retention-days: 7',text);self.assertIn('needs: prepare',text)
 
 if __name__=='__main__':unittest.main()

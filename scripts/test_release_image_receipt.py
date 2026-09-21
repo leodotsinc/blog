@@ -103,7 +103,7 @@ class FunctionalReceipt(unittest.TestCase):
             self.assertIn('--output functional-evidence/functional.json',text)
             self.assertIn('echo "runtime=$runtime"',text)
         deploy=(root/'.github/workflows/deploy.yml').read_text()
-        self.assertIn("if: github.event_name != 'workflow_dispatch' || inputs.prepare_only == false",deploy)
+        self.assertIn("if: inputs.maintenance_context != '' || github.event_name != 'workflow_dispatch' || inputs.prepare_only == false",deploy)
         self.assertIn('python3 scripts/maintenance-guard.py',deploy)
 
 

@@ -23,6 +23,7 @@ SHA = re.compile(r'[0-9a-f]{40}\Z')
 VERSION = re.compile(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z')
 NAME = re.compile(r'(?:@[a-z0-9._-]+/)?[a-z0-9][a-z0-9._-]*\Z')
 ALLOWED = {'package.json', 'yarn.lock'}
+CONTROL = '.github/maintenance.json'
 GROUPS = ('dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies')
 LIMIT = 4 * 1024 * 1024
 class Refusal(ValueError): pass
@@ -90,7 +91,12 @@ def validate_snapshot(snapshot):
             isinstance(snapshot['commit'], str) and SHA.fullmatch(snapshot['commit']), 'SNAPSHOT_IDENTITY')
     require(isinstance(snapshot['files'], dict) and 2 <= len(snapshot['files']) <= 20000, 'SNAPSHOT_FILES')
     require(tree_oid(snapshot['files']) == snapshot['tree'], 'SNAPSHOT_TREE_MISMATCH')
-    require(set(snapshot['contents']) == ALLOWED, 'SNAPSHOT_CONTENTS')
+    require(isinstance(snapshot['contents'],dict) and ALLOWED <= set(snapshot['contents']) <= ALLOWED|{CONTROL}, 'SNAPSHOT_CONTENTS')
+    if CONTROL in snapshot['contents']:
+        raw=snapshot['contents'][CONTROL];entry=snapshot['files'].get(CONTROL,{})
+        require(isinstance(raw,str) and len(raw.encode())<=16384 and entry.get('mode')=='100644' and
+                git_oid('blob',raw.encode())==entry.get('oid'),'CONTROL_BLOB_MISMATCH')
+        require(isinstance(decode(raw),dict),'CONTROL_JSON_SCHEMA')
     parsed = {}
     for name in ALLOWED:
         item = snapshot['files'].get(name, {})
@@ -236,11 +242,26 @@ def graph(package, selectors):
     return nodes,edges
 
 
-def classify(before, after, verified_baseline):
+def classify(before, after, verified_baseline, *, producer=None, control_sha256=None):
     package, lock = validate_snapshot(before); candidate, updated = validate_snapshot(after)
     require(before['commit'] == verified_baseline, 'PRODUCTION_BASELINE_DRIFT')
     paths = sorted(p for p in set(before['files']) | set(after['files']) if before['files'].get(p) != after['files'].get(p))
-    require(paths and set(paths) <= ALLOWED and 'yarn.lock' in paths, 'NONDEPENDENCY_OR_EMPTY_DELTA')
+    control=None
+    if producer is not None or control_sha256 is not None:
+        require(isinstance(producer,dict) and isinstance(control_sha256,str) and re.fullmatch(r'[0-9a-f]{64}',control_sha256),'CONTROL_PIN_REQUIRED')
+        validate_snapshot(producer)
+        require(all(CONTROL in snap['contents'] for snap in (before,producer,after)),'CONTROL_CONTENTS_REQUIRED')
+        changed=lambda a,b:{p for p in set(a['files'])|set(b['files']) if a['files'].get(p)!=b['files'].get(p)}
+        require(changed(before,producer)<={CONTROL},'PRODUCER_HAS_RUNTIME_OR_CODE_CHANGE')
+        candidate_paths=changed(producer,after)
+        require(candidate_paths and candidate_paths<=ALLOWED and 'yarn.lock' in candidate_paths,'CANDIDATE_CHANGED_CONTROL_OR_CODE')
+        require(producer['contents'][CONTROL]==after['contents'][CONTROL] and
+                hashlib.sha256(producer['contents'][CONTROL].encode()).hexdigest()==control_sha256,'APPROVED_CONTROL_DRIFT')
+        control={'producer_commit':producer['commit'],'path':CONTROL,'baseline_blob_oid':before['files'][CONTROL]['oid'],
+                 'producer_blob_oid':producer['files'][CONTROL]['oid'],'sha256':control_sha256}
+        require(paths and set(paths)<=ALLOWED|{CONTROL} and 'yarn.lock' in paths,'NONDEPENDENCY_OR_EMPTY_DELTA')
+    else:
+        require(paths and set(paths) <= ALLOWED and 'yarn.lock' in paths, 'NONDEPENDENCY_OR_EMPTY_DELTA')
     mutable = set(GROUPS) | {'resolutions'}
     require({k:v for k,v in package.items() if k not in mutable} ==
             {k:v for k,v in candidate.items() if k not in mutable}, 'PACKAGE_BEHAVIOR_CHANGED')
@@ -296,6 +317,7 @@ def classify(before, after, verified_baseline):
             require(satisfies(spec,actual) or changed_resolutions.get(name)==actual,'CHANGED_EDGE_RANGE_MISMATCH')
     result={'schema_version':1,'service':'blog','baseline_commit':before['commit'],'candidate_commit':after['commit'],
             'candidate_tree':after['tree'],'paths':paths,'changes':sorted(changes,key=lambda x:(x['name'],x['after']))}
+    if control is not None:result['control']=control
     return {**result,'delta_sha256':sha256(result),'deployment_authorized':False,
             'required_next':['trusted registry/advisory and exact CI review','host policy/backup/functional qualification']}
 
@@ -315,7 +337,7 @@ def collect(revision,cwd=None):
         meta,path=row.split(b'\t',1);mode,kind,oid=meta.decode().split()
         require(kind=='blob','SUBMODULE_REQUIRES_REVIEW');files[path.decode()]={'mode':mode,'oid':oid}
     return {'schema_version':1,'commit':revision,'tree':git('rev-parse',revision+'^{tree}',cwd=cwd).decode().strip(),
-            'files':files,'contents':{name:git('show',revision+':'+name,cwd=cwd).decode() for name in ALLOWED}}
+            'files':files,'contents':{name:git('show',revision+':'+name,cwd=cwd).decode() for name in ALLOWED|({CONTROL} if CONTROL in files else set())}}
 
 
 def main():
