@@ -213,6 +213,13 @@ def source_review(event,env,api,root,local,at):
     return result
 
 
+def save_source(path,value):
+    if len(G.canonical(value))>128*1024:
+        value={**value,'status':'refused','code':'SOURCE_PROOF_SIZE','classification':None}
+    require(len(G.canonical(value))+1<=128*1024,'SOURCE_PROOF_SIZE')
+    write(path,value);return value
+
+
 def write(path,value):
     path.write_bytes(G.canonical(value)+b'\n')
 
@@ -230,11 +237,11 @@ def main():
     parser.add_argument('--prepared',type=Path,default=Path('maintenance-prepared.json'));parser.add_argument('--journal',type=Path,default=Path('maintenance-outcome.json'))
     parser.add_argument('--context',type=Path,default=Path('maintenance-context.json'));args=parser.parse_args()
     if args.command=='source-review':
-        event=G.decode(Path(os.environ['GITHUB_EVENT_PATH']).read_text());head=event.get('pull_request',{}).get('head',{}).get('sha')
+        api=API(os.environ.get('GH_TOKEN'));event=G.decode(Path(os.environ['GITHUB_EVENT_PATH']).read_text());head=event.get('pull_request',{}).get('head',{}).get('sha')
         require(isinstance(head,str) and G.SHA.fullmatch(head),'SOURCE_REVIEW_EVENT')
         require(G.git('rev-parse','HEAD',cwd=args.root).decode().strip()==head,'CI_CHECKOUT_HEAD_MISMATCH')
-        result=source_review(event,dict(os.environ),API(os.environ.get('GH_TOKEN')),args.root,G.collect(head,cwd=args.root),now())
-        write(args.output,result);print(json.dumps({'status':result['status'],'code':result['code']}));return
+        result=source_review(event,dict(os.environ),api,args.root,G.collect(head,cwd=args.root),now())
+        result=save_source(args.output,result);print(json.dumps({'status':result['status'],'code':result['code']}));return
     require(args.request is not None,'REQUEST_REQUIRED')
     request=G.decode(args.request.read_text());config=G.decode((args.root/G.CONTROL).read_text());event=G.decode(Path(os.environ['GITHUB_EVENT_PATH']).read_text());env=dict(os.environ)
     identity(request,config,event,env,args.root,now())

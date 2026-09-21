@@ -87,9 +87,17 @@ class Execution(unittest.TestCase):
         self.assertEqual(result['status'],'passed');self.assertEqual(result['baseline_commit'],A);self.assertEqual(result['producer_base'],B)
         self.assertEqual(result['producer_commit'],H);self.assertEqual(len(result['code_sha256']),13)
         self.assertEqual(result['classification']['control']['sha256'],self.request['control_sha256'])
+        refreshed=E.source_review(event,{**env,'GITHUB_RUN_ATTEMPT':'2'},self.api,self.root,self.head,NOW)
+        self.assertEqual(refreshed['status'],'passed');self.assertEqual(refreshed['run_attempt'],2);self.assertEqual(refreshed['head_sha'],H)
         self.api.main=M;denied=E.source_review(event,env,self.api,self.root,self.head,NOW)
         self.assertEqual(denied['status'],'refused');self.assertIsNone(denied['classification']);self.assertEqual(denied['code'],'SOURCE_REVIEW_BASE_DRIFT')
         self.assertEqual(self.api.mutations,[])
+    def test_source_proof_size_is_bounded_and_never_truncates_to_positive(self):
+        output=self.root/'source-qualification.json'
+        value={'status':'passed','code':None,'classification':{'oversize':'x'*(128*1024)}}
+        result=E.save_source(output,value)
+        self.assertEqual(result['status'],'refused');self.assertEqual(result['code'],'SOURCE_PROOF_SIZE');self.assertIsNone(result['classification'])
+        self.assertLessEqual(output.stat().st_size,128*1024)
     def test_disabled_or_unqualified_config_refuses_before_network(self):
         for key,value in [('enabled',False),('host_qualification_sha256',None),('scheduler_app_id','1')]:
             original=self.config[key];self.config[key]=value
@@ -197,6 +205,7 @@ class WorkflowSafety(unittest.TestCase):
         self.assertLess(caller.index('maintenance-execution.py validate'),caller.index('maintenance-execution.py prepare'))
         self.assertLess(caller.index('Reserve request before'),caller.index('maintenance-execution.py merge'))
         self.assertIn('needs: prepare',caller);self.assertNotIn('prepare_only:',caller)
+        ci=(ROOT/'.github/workflows/ci.yml').read_text();self.assertIn('retention-days: 45',ci);self.assertIn('retention-days: 7',ci)
         self.assertIn("if: inputs.maintenance_context == ''",callee);self.assertIn('python3 scripts/maintenance-guard.py',callee)
         self.assertIn('python3 ../trusted/scripts/maintenance-execution.py preflight',callee)
         self.assertIn('maintenance_artifact:',callee);self.assertIn('75bb057aaa633335b54c38f4729f96879264e070',callee)

@@ -62,7 +62,7 @@ jobs:
           name: blog-source-qualification-${{ github.run_id }}-${{ github.run_attempt }}
           path: source-qualification.json
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 45
   image:
     name: Linux image and isolated runtime
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
