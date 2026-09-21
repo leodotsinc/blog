@@ -285,10 +285,56 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  rollout:
-    if: inputs.maintenance_context != '' || github.event_name != 'workflow_dispatch' || inputs.prepare_only == false
-    name: Checkpoint, preflight and controlled Blog rollout
+  maintenance_metadata:
+    name: Refresh official maintenance metadata
+    if: inputs.maintenance_context != ''
     needs: [gate, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: ${{ needs.build.outputs.artifact_name }}
+          path: built
+      - name: Authenticate source proof and refresh official metadata without executing dependencies
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONTEXT_JSON: ${{ inputs.maintenance_context }}
+          REQUEST_JSON: ${{ inputs.maintenance_request }}
+          SOURCE_SHA: ${{ needs.gate.outputs.sha }}
+          RELEASE_VERSION: ${{ needs.gate.outputs.version }}
+        run: |
+          umask 077
+          python3 - <<'PYTHON'
+          import os,pathlib
+          for key,name in [('CONTEXT_JSON','maintenance-context.json'),('REQUEST_JSON','maintenance-request.json')]:
+            raw=os.environ[key].encode()
+            if len(raw)>16384: raise SystemExit('INPUT_TOO_LARGE')
+            pathlib.Path(name).write_bytes(raw)
+          PYTHON
+          python3 scripts/maintenance-execution.py registry-refresh --request maintenance-request.json --manifest built/release.json --output registry.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: blog-maintenance-registry-${{ github.run_id }}-${{ github.run_attempt }}
+          path: registry.json
+          if-no-files-found: error
+          retention-days: 7
+
+  rollout:
+    if: >-
+      always() && needs.gate.result == 'success' && needs.build.result == 'success' &&
+      ((inputs.maintenance_context != '' && needs.maintenance_metadata.result == 'success') ||
+       (inputs.maintenance_context == '' && (github.event_name != 'workflow_dispatch' || inputs.prepare_only == false)))
+    name: Checkpoint, preflight and controlled Blog rollout
+    needs: [gate, build, maintenance_metadata]
     permissions:
       contents: read
       packages: read

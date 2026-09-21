@@ -24,6 +24,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+      - run: python3 -m unittest discover -s scripts -p 'test_release*.py'
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '26'
@@ -47,14 +48,32 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          path: trusted
           persist-credentials: false
-      - run: python3 -m unittest discover -s scripts -p 'test_release*.py'
-      - name: Record source classification without deployment authorization
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         if: github.event_name == 'pull_request'
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: candidate
+          persist-credentials: false
+      - name: Require source-proof support in the trusted base
+        if: github.event_name == 'pull_request'
+        id: source_tool
+        run: |
+          python3 - <<'PYTHON'
+          import json,os,pathlib
+          source=pathlib.Path('trusted/scripts/maintenance-execution.py')
+          supported=source.is_file() and '--candidate-root' in source.read_text()
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output: output.write('supported='+str(supported).lower()+'\n')
+          if not supported:
+            pathlib.Path('source-qualification.json').write_text(json.dumps({'schema_version':2,'status':'refused','code':'SOURCE_PROOF_UPGRADE_PENDING'})+'\n')
+          PYTHON
+      - name: Record source classification without deployment authorization
+        if: github.event_name == 'pull_request' && steps.source_tool.outputs.supported == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/maintenance-execution.py source-review
+        run: python3 trusted/scripts/maintenance-execution.py source-review --root trusted --candidate-root candidate
       - name: Retain authenticated source qualification or explicit refusal
         if: ${{ !cancelled() && hashFiles('source-qualification.json') != '' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

@@ -33,6 +33,7 @@ class API(O.API):
             for name,raw in s['contents'].items():self.rows[s['files'][name]['oid']]=raw.encode()
         for name,raw in extras.items():self.rows[producer['files'][name]['oid']]=raw.encode()
     def github(self,path):
+        if '/actions/runs/100/artifacts?' in path:return self.rewrite(path,{'total_count':len(self.artifacts),'artifacts':copy.deepcopy(self.artifacts)})
         if '/git/ref/tags/' in path:return {'object':{'type':'commit','sha':A}}
         if path.endswith('/git/ref/heads/main'):return self.rewrite(path,{'object':{'type':'commit','sha':self.main}})
         if path.endswith('/git/commits/'+A):return {'sha':A,'tree':{'sha':self.base['tree']}}
@@ -67,6 +68,16 @@ class Execution(unittest.TestCase):
         self.request['request_id']=G.sha256({'app':'blog','baseline_receipt_sha256':self.request['baseline']['receipt_sha256'],'head_sha':H,'tree_sha':self.head['tree']})
         for name,raw in extras.items():path=self.root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(raw)
         self.api=API(self.base,self.producer,self.head,self.request['base_manifest'],self.config,extras)
+        self.source_event={'pull_request':{'number':128,'head':{'sha':H},'base':{'sha':B}}}
+        self.source_env={**self.env,'GITHUB_EVENT_NAME':'pull_request','GITHUB_RUN_ID':'100'}
+        self.source=E.source_review(self.source_event,self.source_env,self.api,self.root,self.head,NOW)
+        self.assertEqual(self.source['status'],'passed');self.install_proof(self.source);self.api.calls=[]
+    def install_proof(self,value):
+        raw=O.packed({'source-qualification.json':value});self.api.binary_values[4]=raw
+        self.api.artifacts=[a for a in self.api.artifacts if a['id']!=4]+[{'id':4,'name':'blog-source-qualification-100-1',
+            'expired':False,'size_in_bytes':len(raw),'digest':'sha256:'+hashlib.sha256(raw).hexdigest(),
+            'workflow_run':{'id':100,'head_sha':H,'repository_id':1021194725,'head_repository_id':1021194725}}]
+
     def tearDown(self):self.temp.cleanup()
     def prepare(self):return E.prepare(self.request,self.config,self.event,self.env,self.api,self.root,I.read_artifact,clock=lambda:NOW)
     def test_full_prepare_merge_preflight_keeps_real_identities(self):
@@ -80,6 +91,32 @@ class Execution(unittest.TestCase):
         self.assertEqual(set(context),E.CONTEXT_KEYS)
         result=E.preflight(context,self.request,self.config,self.event,self.env,self.api,self.root,NOW,clock=lambda:NOW)
         self.assertEqual(result['delta_sha256'],proof['delta']['delta_sha256'])
+    def test_nominal_prepare_and_preflight_do_not_classify_parse_yarn_or_query_registry(self):
+        with patch.object(G,'classify',side_effect=AssertionError('must stay in CI')), \
+             patch.object(G,'parse_yarn',side_effect=AssertionError('no runtime Yarn parser')), \
+             patch.object(self.api,'registry',side_effect=AssertionError('release refresh only')):
+            proof=self.prepare();context=E.context(self.request,proof,M,'200');self.api.main=M
+            E.preflight(context,self.request,self.config,self.event,self.env,self.api,self.root,NOW,clock=lambda:NOW)
+    def test_proof_missing_code_hash_source_drift_unknown_and_staleness_refuse_before_merge(self):
+        original=copy.deepcopy(self.source)
+        for key,bad in [('schema_version',1),('code_sha256',{}),('producer_base',H),('head_sha',B),('classification',{}),
+                        ('registry',[]),('observed_at',(NOW-timedelta(hours=25)).isoformat()),('status','refused')]:
+            value={**copy.deepcopy(original),key:bad};self.install_proof(value)
+            with self.subTest(key=key),self.assertRaises((ValueError,KeyError)):self.prepare()
+            self.assertEqual(self.api.mutations,[])
+        self.api.artifacts=[a for a in self.api.artifacts if a['id']!=4]
+        with self.assertRaisesRegex(ValueError,'SOURCE_ARTIFACT_MISSING'):self.prepare()
+    def test_release_refresh_binds_source_archive_manifest_and_rows_without_reclassification(self):
+        proof=self.prepare();context=E.context(self.request,proof,M,'200');self.api.main=M
+        manifest=copy.deepcopy(self.request['base_manifest']);manifest.update(git_sha=M,release_version='0.1.5',app_version='0.1.5')
+        manifest['build'].update(id='200',attempt=1);manifest['deployment'].update(status='built',deployed_at=None,verified_at=None,observed_image=None)
+        with patch.object(G,'classify',side_effect=AssertionError('CI only')),patch.object(G,'parse_yarn',side_effect=AssertionError('CI only')):
+            value=E.refresh_registry(context,self.request,self.config,self.env,self.api,self.root,manifest,NOW)
+        self.assertEqual(value['release_manifest_sha256'],G.sha256(manifest));self.assertEqual(value['source_commit'],M)
+        self.assertEqual(value['source_artifact']['digest'],self.api.artifacts[-1]['digest'])
+        for rows in ([],[{**r,'affecting_advisories':[{'id':'fake'}]} for r in value['registry']],
+                     [{**r,'checked_at':(NOW-timedelta(minutes=5,seconds=1)).isoformat()} for r in value['registry']]):
+            with self.assertRaises(ValueError):E.registry_rows(rows,proof['delta'],NOW,timedelta(minutes=5))
     def test_source_artifact_preserves_cumulative_identity_and_explicit_refusal(self):
         env={**self.env,'GITHUB_EVENT_NAME':'pull_request','GITHUB_RUN_ID':'100'}
         event={'pull_request':{'number':128,'head':{'sha':H},'base':{'sha':B}}}
@@ -210,6 +247,13 @@ class WorkflowSafety(unittest.TestCase):
         self.assertIn('python3 ../trusted/scripts/maintenance-execution.py preflight',callee)
         self.assertIn('maintenance_artifact:',callee);self.assertIn('75bb057aaa633335b54c38f4729f96879264e070',callee)
         self.assertLess(callee.index('Recheck window, source'),callee.index('docker push'))
+        isolated=callee.split('  maintenance_metadata:')[1].split('  rollout:')[0]
+        self.assertIn('needs: [gate, build]',isolated);self.assertIn('registry-refresh',isolated)
+        for command in ('yarn ', 'npm ', 'docker ', 'test_release'):self.assertNotIn(command,isolated)
+        source_job=ci.split('  release_contract:')[1].split('  image:')[0]
+        self.assertIn('pull_request.base.sha',source_job);self.assertIn('--candidate-root candidate',source_job)
+        for command in ('yarn ', 'npm ', 'unittest'):self.assertNotIn(command,source_job)
+        self.assertIn("needs.maintenance_metadata.result == 'success'",callee)
     def test_repository_config_remains_disabled_and_no_new_secrets(self):
         config=json.loads((ROOT/'.github/maintenance.json').read_text());self.assertIs(config['enabled'],False);self.assertIsNone(config['host_qualification_sha256']);self.assertEqual(config['trusted_code'],{})
         result=subprocess.run(['python3','scripts/maintenance-execution.py','validate','--request','/does/not/exist'],cwd=ROOT,env={'PATH':os.environ['PATH']},capture_output=True,text=True)

@@ -10,6 +10,8 @@ from datetime import datetime,timezone,timedelta
 import hashlib
 import importlib.util
 import json
+import io
+import zipfile
 import os
 from pathlib import Path
 import re
@@ -42,7 +44,7 @@ def identity(request,config,event,env,root,at):
 
 def fresh_proof(proof,at):
     A.fresh(proof['ci']['updated_at'],at)
-    for item in proof['registry']:A.fresh(item['checked_at'],at,timedelta(minutes=20))
+    for item in proof['registry']:A.fresh(item['checked_at'],at)
     for item in proof['review_image_evidence']['security'].values():
         A.fresh(item['observed_at'],at);A.fresh(item['database_updated_at'],at)
     A.fresh(proof['review_image_evidence']['functional']['observed_at'],at)
@@ -70,6 +72,79 @@ def source(request,config,api):
     return delta,producer
 
 
+def identity_snapshot(api,sha):
+    """Authenticate a Git tree, without parsing dependency manifests."""
+    obj=api.github(PREFIX+'/git/commits/'+sha)
+    require(obj.get('sha')==sha and G.SHA.fullmatch(obj.get('tree',{}).get('sha','')),'SOURCE_COMMIT_IDENTITY')
+    tree=obj['tree']['sha'];rows=api.github(PREFIX+'/git/trees/'+tree+'?recursive=1')
+    require(rows.get('sha')==tree and rows.get('truncated') is False and isinstance(rows.get('tree'),list) and len(rows['tree'])<=20000,'SOURCE_TREE_INCOMPLETE')
+    files={}
+    for row in rows['tree']:
+        if row.get('type')=='tree':continue
+        require(row.get('type')=='blob' and row.get('path') not in files,'SOURCE_TREE_ENTRY')
+        files[row['path']]={'mode':row.get('mode'),'oid':row.get('sha')}
+    require(G.tree_oid(files)==tree,'SOURCE_TREE_HASH')
+    return {'commit':sha,'tree':tree,'files':files}
+
+
+def read_json_artifact(api,name,run_id,attempt,head,filename,limit=128*1024):
+    listing=api.github(PREFIX+f'/actions/runs/{run_id}/artifacts?per_page=100&page=1')
+    require(type(listing.get('total_count')) is int and listing['total_count']==len(listing.get('artifacts',[]))<=100,'SOURCE_ARTIFACT_LIST')
+    found=[row for row in listing['artifacts'] if row.get('name')==name]
+    require(len(found)==1,'SOURCE_ARTIFACT_MISSING_OR_AMBIGUOUS');meta=found[0];linked=meta.get('workflow_run',{})
+    require(meta.get('expired') is False and type(meta.get('id')) is int and meta['id']>0 and
+            linked.get('id')==run_id and linked.get('head_sha')==head and
+            linked.get('repository_id')==linked.get('head_repository_id')==1021194725,'SOURCE_ARTIFACT_PRODUCER')
+    raw=api.binary(PREFIX+'/actions/artifacts/'+str(meta['id'])+'/zip',meta,256*1024)
+    require(meta.get('digest')=='sha256:'+hashlib.sha256(raw).hexdigest(),'SOURCE_ARCHIVE_DIGEST')
+    with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+        entries=archive.infolist()
+        require(len(entries)==1 and entries[0].filename==filename and entries[0].file_size<=limit and not entries[0].flag_bits&1,'SOURCE_ARTIFACT_CONTENTS')
+        value=G.decode(archive.read(entries[0]).decode())
+    return value,{'id':meta['id'],'digest':meta['digest']}
+
+
+def registry_rows(rows,delta,at,maximum=timedelta(hours=24)):
+    require(isinstance(rows,list) and 0<len(rows)==len(delta['changes'])<=20,'REGISTRY_PROOF_INCOMPLETE')
+    expected={(item['name'],item['after'],item['integrity']) for item in delta['changes']}
+    require(len(expected)==len(rows),'REGISTRY_PROOF_DUPLICATE')
+    seen=set()
+    for row in rows:
+        A.exact(row,{'name','version','integrity','published_at','checked_at','source','advisories_source','affecting_advisories'},'REGISTRY_PROOF_SCHEMA')
+        key=(row['name'],row['version'],row['integrity']);require(key in expected and key not in seen,'REGISTRY_PROOF_IDENTITY');seen.add(key)
+        require(row['source']=='https://registry.npmjs.org/'+row['name'] and row['advisories_source']=='https://api.github.com/advisories' and row['affecting_advisories']==[],'REGISTRY_PROOF_UNKNOWN')
+        A.fresh(row['checked_at'],at,maximum)
+        require(at-A.stamp(row['published_at'])>=timedelta(days=14),'IMMATURE_UPSTREAM_RELEASE')
+
+
+def source_proof(request,config,api,root,ci,at):
+    """Consume trusted CI semantics; never parse Yarn or reclassify in a receiver."""
+    pr=request['source_pr'];number=int(ci['run_id']);attempt=ci['attempt']
+    value,binding=read_json_artifact(api,f'blog-source-qualification-{number}-{attempt}',number,attempt,pr['head_sha'],'source-qualification.json')
+    expected={'schema_version':2,'repository':R.REPO,'run_id':number,'run_attempt':attempt,
+        'producer_commit':pr['head_sha'],'producer_base':pr['base_sha'],'head_sha':pr['head_sha'],'tree_sha':pr['tree_sha'],
+        'baseline_commit':request['baseline']['git_sha'],'baseline_receipt_sha256':G.sha256(request['base_manifest']),
+        'control_sha256':request['control_sha256'],'code_sha256':config['trusted_code'],'status':'passed','code':None}
+    A.exact(value,set(expected)|{'classification','registry','observed_at'},'SOURCE_PROOF_SCHEMA')
+    require(type(value['schema_version']) is int and type(value['run_id']) is int and type(value['run_attempt']) is int and all(value[k]==v for k,v in expected.items()),'SOURCE_PROOF_IDENTITY')
+    A.fresh(value['observed_at'],at)
+    base,producer,head=[identity_snapshot(api,sha) for sha in (request['baseline']['git_sha'],pr['base_sha'],pr['head_sha'])]
+    require(head['tree']==pr['tree_sha'],'SOURCE_TREE_CHANGED');code(api,producer,config,root)
+    changed=lambda left,right:sorted(p for p in set(left['files'])|set(right['files']) if left['files'].get(p)!=right['files'].get(p))
+    require(set(changed(base,producer))<={G.CONTROL} and set(changed(producer,head))<=G.ALLOWED,'SOURCE_UNQUALIFIED_FILE_CHANGE')
+    control=R.blob(api,producer['files'][G.CONTROL]['oid'])
+    require(hashlib.sha256(control).hexdigest()==request['control_sha256'],'ROOT_APPROVED_CONTROL_DRIFT')
+    delta=value['classification']
+    A.exact(delta,{'schema_version','service','baseline_commit','candidate_commit','candidate_tree','paths','changes','control','delta_sha256','deployment_authorized','required_next'},'SOURCE_DELTA_SCHEMA')
+    require(delta['schema_version']==1 and delta['service']=='blog' and delta['baseline_commit']==base['commit'] and delta['candidate_commit']==head['commit'] and
+        delta['candidate_tree']==head['tree'] and delta['paths']==changed(base,head) and delta['deployment_authorized'] is False and
+        delta['delta_sha256']==G.sha256({k:v for k,v in delta.items() if k not in {'delta_sha256','deployment_authorized','required_next'}}),'SOURCE_DELTA_IDENTITY')
+    require(delta['control']=={'producer_commit':producer['commit'],'path':G.CONTROL,'baseline_blob_oid':base['files'][G.CONTROL]['oid'],
+        'producer_blob_oid':producer['files'][G.CONTROL]['oid'],'sha256':request['control_sha256']},'SOURCE_CONTROL_IDENTITY')
+    registry_rows(value['registry'],delta,at)
+    return value,binding,producer
+
+
 def prepare(request,config,event,env,api,root,reader,clock=now):
     identity(request,config,event,env,root,clock())
     baseline=R.published_baseline(api)
@@ -78,12 +153,13 @@ def prepare(request,config,event,env,api,root,reader,clock=now):
     require(dedup.get('total_count')==0 and dedup.get('artifacts')==[],'DUPLICATE_REQUEST_OR_UNKNOWN')
     main=api.github(PREFIX+'/git/ref/heads/main')
     require(main.get('object',{}).get('sha')==request['source_pr']['base_sha'],'PRODUCER_MAIN_DRIFT')
-    R.source_pr(api,request,config);delta,producer=source(request,config,api);code(api,producer,config,root)
-    registry=A.review_registry(delta,api,clock());ci=A.review_ci(request['source_pr']['head_sha'],api,clock())
+    R.source_pr(api,request,config);ci=A.review_ci(request['source_pr']['head_sha'],api,clock())
+    qualified,binding,producer=source_proof(request,config,api,root,ci,clock())
+    delta=qualified['classification'];registry=qualified['registry']
     from image_receipt import read_artifact
     images=R.image_evidence(api,ci,config,clock(),reader or read_artifact)
     result={'schema_version':1,'service':'blog','status':'prepared_pending_merge','request_id':request['request_id'],
-            'request':request,'delta':delta,'registry':registry,'ci':ci,'review_image_evidence':images,
+            'request':request,'delta':delta,'registry':registry,'source_artifact':binding,'ci':ci,'review_image_evidence':images,
             'producer_commit':producer['commit'],'observed_at':clock().isoformat(),'deployment_authorized':False}
     R.source_pr(api,request,config)
     require(api.github(PREFIX+'/git/ref/heads/main').get('object',{}).get('sha')==producer['commit'],'MAIN_CHANGED_DURING_COLLECTION')
@@ -155,7 +231,7 @@ def context(request,prepared,merged,run_id):
             'producer_commit':pr['base_sha'],'evidence_run_id':int(prepared['ci']['run_id']),'release_run_id':int(run_id)}
 
 
-def preflight(value,request,config,event,env,api,root,at,clock=now):
+def preflight(value,request,config,event,env,api,root,at,clock=now, *, with_proof=False):
     A.exact(value,CONTEXT_KEYS,'CONTEXT_SCHEMA');identity(request,config,event,env,root,at)
     require(value['app']=='blog' and type(value['schema_version']) is int and value['schema_version']==1 and value['mode']=='monthly' and
             type(value['evidence_run_id']) is int and value['evidence_run_id']>0 and type(value['release_run_id']) is int and
@@ -166,30 +242,53 @@ def preflight(value,request,config,event,env,api,root,at,clock=now):
     require(value['producer_commit']==request['source_pr']['base_sha'] and value['head_sha']==request['source_pr']['head_sha'] and
             value['tree_sha']==request['source_pr']['tree_sha'] and value['baseline_receipt_sha256']==request['baseline']['receipt_sha256'],'CONTEXT_SOURCE_CHANGED')
     require(R.published_baseline(api)==request['base_manifest'],'PUBLISHED_BASELINE_CHANGED')
-    delta,producer=source(request,config,api);code(api,producer,config,root)
+    ci=A.review_ci(request['source_pr']['head_sha'],api,clock())
+    qualified,binding,producer=source_proof(request,config,api,root,ci,clock())
+    delta=qualified['classification']
     require(delta['delta_sha256']==value['delta_sha256'],'CUMULATIVE_DELTA_CHANGED')
     commit=api.github(PREFIX+'/commits/'+value['merged_sha'])
     merged_identity(commit,api.github(PREFIX+'/git/ref/heads/main'),request)
-    ci=A.review_ci(request['source_pr']['head_sha'],api,clock())
     require(int(ci['run_id'])==value['evidence_run_id'],'CI_RUN_CHANGED')
-    registry=A.review_registry(delta,api,clock())
+    registry=qualified['registry']
     final=clock();identity(request,config,event,env,root,final);A.fresh(ci['updated_at'],final)
-    for item in registry:A.fresh(item['checked_at'],final,timedelta(minutes=20))
+    for item in registry:A.fresh(item['checked_at'],final)
     # Checked once more after all remote reads, immediately before the caller's
     # build/publish step. Host performs its own final authorization under locks.
     require(api.github(PREFIX+'/git/ref/heads/main').get('object',{}).get('sha')==value['merged_sha'],'MAIN_CHANGED_AFTER_PREFLIGHT')
     identity(request,config,event,env,root,clock())
-    return delta
+    return (qualified,binding) if with_proof else delta
+
+
+def refresh_registry(context,request,config,env,api,root,manifest,at,qualified=None):
+    """Isolated trusted release job. No install, lock parsing or candidate code."""
+    from release_manifest import validate
+    validate(manifest)
+    require(manifest['git_sha']==context['merged_sha'] and manifest['service']=='blog' and
+            manifest['source_repository']=='https://github.com/'+R.REPO and manifest['build']['id']==str(context['release_run_id']) and
+            manifest['build']['attempt']==int(env['GITHUB_RUN_ATTEMPT']) and manifest['deployment']['status']=='built','REGISTRY_MANIFEST_IDENTITY')
+    if qualified is None:
+        ci=A.review_ci(context['head_sha'],api,at)
+        require(int(ci['run_id'])==context['evidence_run_id'],'CI_RUN_CHANGED')
+        proof,binding,_=source_proof(request,config,api,root,ci,at)
+    else:proof,binding=qualified
+    require(proof['classification']['delta_sha256']==context['delta_sha256'],'CUMULATIVE_DELTA_CHANGED')
+    rows=A.review_registry(proof['classification'],api,at)
+    registry_rows(rows,proof['classification'],at,timedelta(minutes=5))
+    return {'schema_version':1,'repository':R.REPO,'run_id':context['release_run_id'],
+        'run_attempt':int(env['GITHUB_RUN_ATTEMPT']),'producer_commit':context['producer_commit'],
+        'source_commit':context['merged_sha'],'source_artifact':binding,'delta_sha256':context['delta_sha256'],
+        'release_manifest_sha256':G.sha256(manifest),'image':manifest['image'],
+        'code_sha256':config['trusted_code'],'registry':rows,'observed_at':at.isoformat()}
 
 
 def source_review(event,env,api,root,local,at):
     """CI source analysis; trusted consumers authenticate its producer separately."""
     pr=event.get('pull_request',{})
     head=pr.get('head',{}).get('sha');producer=pr.get('base',{}).get('sha')
-    result={'schema_version':1,'repository':R.REPO,'run_id':int(env['GITHUB_RUN_ID']),
+    result={'schema_version':2,'repository':R.REPO,'run_id':int(env['GITHUB_RUN_ID']),
             'run_attempt':int(env['GITHUB_RUN_ATTEMPT']),'producer_commit':head,'producer_base':producer,
             'head_sha':head,'tree_sha':None,'baseline_commit':None,'control_sha256':None,
-            'baseline_receipt_sha256':None,'classification':None,'code_sha256':{},
+            'baseline_receipt_sha256':None,'classification':None,'registry':[],'code_sha256':{},
             'observed_at':at.isoformat(),'status':'refused','code':'SOURCE_REVIEW_INCOMPLETE'}
     try:
         require(env.get('GITHUB_REPOSITORY')==R.REPO and env.get('GITHUB_EVENT_NAME')=='pull_request' and
@@ -207,7 +306,8 @@ def source_review(event,env,api,root,local,at):
         R.source_pr(api,request,config)
         require(api.github(PREFIX+'/git/ref/heads/main').get('object',{}).get('sha')==producer,'SOURCE_REVIEW_BASE_DRIFT')
         delta,_=source(request,config,api)
-        result.update(status='passed',code=None,classification=delta)
+        registry=A.review_registry(delta,api,at)
+        result.update(status='passed',code=None,classification=delta,registry=registry)
     except Exception as error:
         message=str(error);result['code']=message if re.fullmatch(r'[A-Z][A-Z0-9_]{2,80}',message) else 'SOURCE_REVIEW_UNKNOWN'
     return result
@@ -232,15 +332,17 @@ def output(**values):
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('command',choices=['validate','prepare','merge','preflight','source-review'])
+    parser=argparse.ArgumentParser();parser.add_argument('command',choices=['validate','prepare','merge','preflight','source-review','registry-refresh'])
     parser.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[1]);parser.add_argument('--request',type=Path);parser.add_argument('--output',type=Path,default=Path('source-qualification.json'))
+    parser.add_argument('--candidate-root',type=Path);parser.add_argument('--manifest',type=Path,default=Path('release.json'))
     parser.add_argument('--prepared',type=Path,default=Path('maintenance-prepared.json'));parser.add_argument('--journal',type=Path,default=Path('maintenance-outcome.json'))
     parser.add_argument('--context',type=Path,default=Path('maintenance-context.json'));args=parser.parse_args()
     if args.command=='source-review':
         api=API(os.environ.get('GH_TOKEN'));event=G.decode(Path(os.environ['GITHUB_EVENT_PATH']).read_text());head=event.get('pull_request',{}).get('head',{}).get('sha')
         require(isinstance(head,str) and G.SHA.fullmatch(head),'SOURCE_REVIEW_EVENT')
-        require(G.git('rev-parse','HEAD',cwd=args.root).decode().strip()==head,'CI_CHECKOUT_HEAD_MISMATCH')
-        result=source_review(event,dict(os.environ),api,args.root,G.collect(head,cwd=args.root),now())
+        candidate=args.candidate_root or args.root
+        require(G.git('rev-parse','HEAD',cwd=candidate).decode().strip()==head,'CI_CHECKOUT_HEAD_MISMATCH')
+        result=source_review(event,dict(os.environ),api,args.root,G.collect(head,cwd=candidate),now())
         result=save_source(args.output,result);print(json.dumps({'status':result['status'],'code':result['code']}));return
     require(args.request is not None,'REQUEST_REQUIRED')
     request=G.decode(args.request.read_text());config=G.decode((args.root/G.CONTROL).read_text());event=G.decode(Path(os.environ['GITHUB_EVENT_PATH']).read_text());env=dict(os.environ)
@@ -260,10 +362,15 @@ def main():
             output(source_sha=sha,release_version=version,maintenance_context=G.canonical(value).decode())
         finally:write(args.journal,journal)
         return
-    value=G.decode(args.context.read_text());preflight(value,request,config,event,env,api,args.root,now())
+    value=G.decode(args.context.read_text());qualified=preflight(value,request,config,event,env,api,args.root,now(),with_proof=args.command=='registry-refresh')
     require(env.get('SOURCE_SHA')==value['merged_sha'],'RELEASE_SOURCE_CHANGED')
     expected=G.version(request['base_manifest']['release_version']);expected='.'.join(map(str,(expected[0],expected[1],expected[2]+1)))
     require(env.get('RELEASE_VERSION')==expected,'RELEASE_VERSION_CHANGED')
+    if args.command=='registry-refresh':
+        result=refresh_registry(value,request,config,env,api,args.root,G.decode(args.manifest.read_text()),now(),qualified)
+        final=now();identity(request,config,event,env,args.root,final)
+        for row in result['registry']:A.fresh(row['checked_at'],final,timedelta(minutes=5))
+        write(args.output,result)
 
 if __name__=='__main__':
     try:main()
