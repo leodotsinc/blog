@@ -104,14 +104,32 @@ jobs:
             -t "$image" -f Dockerfile .
           echo "$image" > image-tag.txt
       - name: Verify stateless runtime, version and isolated readiness
-        run: python3 scripts/qualify-image.py "$(cat image-tag.txt)"
+        id: functional_qualification
+        env:
+          QUALIFY_SHA: ${{ needs.gate.outputs.sha }}
+          QUALIFY_VERSION: ${{ needs.gate.outputs.version }}
+        run: |
+          python3 scripts/qualify-image.py "$(cat image-tag.txt)" \
+            --revision "$QUALIFY_SHA" --version "$QUALIFY_VERSION" --build-id "$GITHUB_RUN_ID" \
+            --run-attempt "$GITHUB_RUN_ATTEMPT" --workflow deploy.yml \
+            --output functional-evidence/functional.json
+      - name: Retain exact-image functional receipt
+        if: ${{ !cancelled() && steps.functional_qualification.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: blog-release-functional-${{ github.run_id }}-${{ github.run_attempt }}
+          path: functional-evidence/functional.json
+          if-no-files-found: error
+          retention-days: 7
       - name: Materialize builder image for development and build package coverage
         run: docker build --platform linux/amd64 --target builder -t blog-maintenance-builder:local -f Dockerfile .
       - name: Bind security evidence to exact image identities
         id: maintenance_images
         run: |
           set -euo pipefail
-          echo "runtime=$(docker image inspect $(cat image-tag.txt) --format '{{.Id}}')" >> "$GITHUB_OUTPUT"
+          runtime=$(python3 -c 'import json; print(json.load(open("functional-evidence/functional.json"))["image_id"])')
+          [[ "$runtime" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "runtime=$runtime" >> "$GITHUB_OUTPUT"
           echo "builder=$(docker image inspect blog-maintenance-builder:local --format '{{.Id}}')" >> "$GITHUB_OUTPUT"
       - name: Scan runtime image with fresh vulnerability database
         id: runtime_security

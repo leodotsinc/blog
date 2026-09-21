@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Qualify only random-named disposable resources; no providers, VPS or real env."""
+import argparse
+from datetime import datetime, timezone
 import json
+from pathlib import Path
 import re
 import secrets
 import subprocess
-import sys
 import time
 import urllib.request
 from release_manifest import stable_version
+from image_receipt import make_receipt, validate, harness_hashes
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -22,7 +25,7 @@ def run(*args, timeout=120):
     return result.stdout.strip()
 
 
-def qualify(image):
+def qualify(image, identity, producer):
     prefix = 'blog-image-ci-' + secrets.token_hex(5)
     network, app = prefix + '-network', prefix + '-app'
     made = []
@@ -31,6 +34,7 @@ def qualify(image):
         assert info['Os'] == 'linux' and info['Architecture'] == 'amd64'
         env = dict(row.split('=', 1) for row in info['Config'].get('Env', []) if '=' in row)
         expected = {'version': env['APP_VERSION'], 'revision': env['APP_REVISION'], 'build_id': env['APP_BUILD_ID']}
+        assert expected == identity
         stable_version(expected['version'])
         assert re.fullmatch(r'[0-9a-f]{40}', expected['revision'])
         assert re.fullmatch(r'[0-9]{1,32}', expected['build_id'])
@@ -45,7 +49,7 @@ def qualify(image):
         made.append(('container', app))
         run('docker', 'run', '-d', '--name', app, '--network', network, '--memory', '768m', '--cpus', '1',
             '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges',
-            image)
+            info['Id'])
         def request(path):
             # Keep the test network internal. Docker 29 may not publish its ports.
             # Read through loopback inside this disposable container instead.
@@ -97,16 +101,31 @@ def qualify(image):
         for path in ['/api/health', '/api/version']:
             # No operational secrets in either endpoint.
             assert 'SPOTIFY_' not in request(path)[1].decode()
-        print(json.dumps({'ok': True, 'image_id': info['Id'], 'version': expected['version'],
-            'checks': ['readiness', 'public_version_identity', 'nonroot_runtime', 'writable_image_cache',
-                'native_codec_versions', 'png_jpeg_processing', 'next_image_optimization', 'home_http'],
-            'runtime_dependencies': codecs,
-            'external_providers_contacted': False, 'visual_acceptance': False, 'restore_verified': False}))
+        receipt = make_receipt(info['Id'], expected, codecs, producer)
+        validate(receipt, {'image_id': info['Id'], 'release': identity, 'producer': producer,
+                          'harness_sha256': harness_hashes()}, datetime.now(timezone.utc))
     finally:
         for kind, name in reversed(made):
             subprocess.run(['docker', kind, 'rm', *(['-f'] if kind == 'container' else []), name],
                            capture_output=True, timeout=30)
+    return receipt
 
 
 if __name__ == '__main__':
-    qualify(sys.argv[1])
+    parser = argparse.ArgumentParser()
+    parser.add_argument('image')
+    for name in ('version', 'revision', 'build-id', 'workflow', 'output'):
+        parser.add_argument('--' + name, required=True)
+    parser.add_argument('--run-attempt', type=int, required=True)
+    args = parser.parse_args()
+    identity = {'version': args.version, 'revision': args.revision, 'build_id': args.build_id}
+    producer = {'run_id': args.build_id, 'run_attempt': args.run_attempt, 'workflow': args.workflow,
+                'job': 'image' if args.workflow == 'ci.yml' else 'build'}
+    result = qualify(args.image, identity, producer)
+    output = Path(args.output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    # Exclusive creation prevents stale evidence from an earlier attempt being reused.
+    with output.open('x') as handle:
+        json.dump(result, handle, sort_keys=True)
+        handle.write('\n')
+    print(json.dumps({'ok': True, 'image_id': result['image_id'], 'receipt': output.name}))

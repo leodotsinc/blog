@@ -66,14 +66,32 @@ jobs:
             --build-arg APP_REVISION="$REVIEW_SHA" --build-arg APP_BUILD_ID="$GITHUB_RUN_ID" \
             -t blog-review:local .
       - name: Verify image identity, isolated runtime and writable cache
-        run: python3 scripts/qualify-image.py blog-review:local
+        id: functional_qualification
+        env:
+          QUALIFY_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          QUALIFY_VERSION: 0.1.0
+        run: |
+          python3 scripts/qualify-image.py blog-review:local \
+            --revision "$QUALIFY_SHA" --version "$QUALIFY_VERSION" --build-id "$GITHUB_RUN_ID" \
+            --run-attempt "$GITHUB_RUN_ATTEMPT" --workflow ci.yml \
+            --output functional-evidence/functional.json
+      - name: Retain exact-image functional receipt
+        if: ${{ !cancelled() && steps.functional_qualification.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: blog-review-functional-${{ github.run_id }}-${{ github.run_attempt }}
+          path: functional-evidence/functional.json
+          if-no-files-found: error
+          retention-days: 7
       - name: Materialize builder image for development and build package coverage
         run: docker build --platform linux/amd64 --target builder -t blog-maintenance-builder:local -f Dockerfile .
       - name: Bind security evidence to exact image identities
         id: maintenance_images
         run: |
           set -euo pipefail
-          echo "runtime=$(docker image inspect blog-review:local --format '{{.Id}}')" >> "$GITHUB_OUTPUT"
+          runtime=$(python3 -c 'import json; print(json.load(open("functional-evidence/functional.json"))["image_id"])')
+          [[ "$runtime" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "runtime=$runtime" >> "$GITHUB_OUTPUT"
           echo "builder=$(docker image inspect blog-maintenance-builder:local --format '{{.Id}}')" >> "$GITHUB_OUTPUT"
       - name: Scan runtime image with fresh vulnerability database
         id: runtime_security
