@@ -15,9 +15,10 @@ test('TOML parser correction preserves MDX frontmatter integration', async () =>
   });
   assert.match(String(result), /Synthetic maintenance/);
   assert.match(String(result), /frontmatter/);
-  assert.deepEqual(toml.parse('title="Test"\n[metadata]\nvalid=true'), {
-    title: 'Test', metadata: { valid: true },
-  });
+  const parsed = toml.parse('title="Test"\n[metadata]\nvalid=true');
+  assert.equal(parsed.title, 'Test');
+  assert.equal(parsed.metadata.valid, true);
+  assert.equal(Object.getPrototypeOf(parsed), null);
 });
 
 test('CVE-2026-77465 deeply nested TOML returns a bounded parse error', () => {
