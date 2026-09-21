@@ -23,6 +23,8 @@ SPEC=importlib.util.spec_from_file_location('yarn_gate',Path(__file__).with_name
 gate=importlib.util.module_from_spec(SPEC);SPEC.loader.exec_module(gate)
 MSPEC=importlib.util.spec_from_file_location('release_metadata',Path(__file__).with_name('release_manifest.py'))
 manifest_contract=importlib.util.module_from_spec(MSPEC);MSPEC.loader.exec_module(manifest_contract)
+REGISTRY_LIMIT=16*1024*1024
+JSON_BUDGET=64*1024*1024
 REPO='leodotsinc/blog';HASH=re.compile(r'[0-9a-f]{64}\Z');SHA=gate.SHA
 REQUEST_KEYS={'schema_version','service','phase','request_id','issued_at','expires_at','policy_sha256','window','source_pr','baseline','base_manifest'}
 CONFIG_KEYS={'schema_version','service','enabled','scheduler_app_id','actor_id','sender_id','policy_sha256','host_qualification_sha256','minimum_release_age_days','renovate_actor_id','repository_id','trusted_code','window'}
@@ -116,7 +118,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 class Collector:
-    def __init__(self,token=None):self.token=token;self.calls=0
+    def __init__(self,token=None):self.token=token;self.calls=0;self.json_bytes=0
     def get(self,host,path):
         require(host in ('api.github.com','registry.npmjs.org') and path.startswith('/') and not path.startswith('//'),'FIXED_API_ORIGIN')
         self.calls+=1;require(self.calls<=65,'API_REQUEST_LIMIT')
@@ -130,9 +132,15 @@ class Collector:
                 remote_date=parsedate_to_datetime(response.headers.get('Date',''))
                 require(remote_date.tzinfo is not None and abs(observed-remote_date)<=timedelta(minutes=15) and
                         0<=int(response.headers.get('Age','0'))<=3600,'STALE_HTTP_RESPONSE')
-                raw=response.read(gate.LIMIT+1)
-                require(len(raw)<=gate.LIMIT and response.status==200,'API_UNKNOWN_OR_LIMIT')
-                return gate.decode(raw.decode())
+                # Registry packuments for Hono/electron already exceed 4 MiB.
+                # Keep separate per-response and cumulative JSON budgets; no
+                # raw metadata is persisted and timestamps still come from npm.
+                limit=REGISTRY_LIMIT if host=='registry.npmjs.org' else gate.LIMIT
+                raw=response.read(limit+1);self.json_bytes+=len(raw)
+                require(len(raw)<=limit and self.json_bytes<=JSON_BUDGET and response.status==200,'API_UNKNOWN_OR_LIMIT')
+                if host=='api.github.com':return gate.decode(raw.decode())
+                return json.loads(raw.decode(),object_pairs_hook=gate.unique,
+                                  parse_constant=lambda _:(_ for _ in ()).throw(gate.Refusal('NONFINITE_JSON')))
         except Exception:raise gate.Refusal('API_UNAVAILABLE_OR_MALFORMED') from None
     def github(self,path):return self.get('api.github.com',path)
     def registry(self,name):return self.get('registry.npmjs.org','/'+urllib.parse.quote(name,safe=''))
