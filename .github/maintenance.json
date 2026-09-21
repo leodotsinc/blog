@@ -7,5 +7,16 @@
   "sender_id": "332011818",
   "policy_sha256": null,
   "host_qualification_sha256": null,
-  "minimum_release_age_days": 14
+  "minimum_release_age_days": 14,
+  "renovate_actor_id": "29139614",
+  "repository_id": 1021194725,
+  "trusted_code": {},
+  "window": {
+    "timezone": "America/Sao_Paulo",
+    "day": 1,
+    "weekday": "first_saturday",
+    "start_hour": 10,
+    "end_hour": 12,
+    "approved": true
+  }
 }

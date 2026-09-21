@@ -1,0 +1,41 @@
+name: Observe maintenance source
+on:
+  workflow_dispatch:
+    inputs:
+      request:
+        description: Closed scheduler preparation envelope (observation only)
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: blog-production-release
+  cancel-in-progress: false
+jobs:
+  observe:
+    if: github.repository == 'leodotsinc/blog' && github.ref == 'refs/heads/main' && github.actor_id == '332011818'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Collect authenticated evidence without mutation
+        id: observe
+        env:
+          REQUEST_JSON: ${{ inputs.request }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          umask 077
+          python3 -c 'import os; open("maintenance-request.json", "x").write(os.environ["REQUEST_JSON"])'
+          python3 scripts/maintenance-yarn-receiver.py --request maintenance-request.json --output observation.json
+      - name: Retain bounded observation and deduplicate its request
+        if: ${{ !cancelled() && steps.observe.outputs.request_id != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: blog-maintenance-observation-${{ steps.observe.outputs.request_id }}
+          path: observation.json
+          if-no-files-found: error
+          retention-days: 7

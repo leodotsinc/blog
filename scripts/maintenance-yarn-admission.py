@@ -25,7 +25,7 @@ MSPEC=importlib.util.spec_from_file_location('release_metadata',Path(__file__).w
 manifest_contract=importlib.util.module_from_spec(MSPEC);MSPEC.loader.exec_module(manifest_contract)
 REPO='leodotsinc/blog';HASH=re.compile(r'[0-9a-f]{64}\Z');SHA=gate.SHA
 REQUEST_KEYS={'schema_version','service','phase','request_id','issued_at','expires_at','policy_sha256','window','source_pr','baseline','base_manifest'}
-CONFIG_KEYS={'schema_version','service','enabled','scheduler_app_id','actor_id','sender_id','policy_sha256','host_qualification_sha256','minimum_release_age_days'}
+CONFIG_KEYS={'schema_version','service','enabled','scheduler_app_id','actor_id','sender_id','policy_sha256','host_qualification_sha256','minimum_release_age_days','renovate_actor_id','repository_id','trusted_code','window'}
 CI_JOBS={'Source tests and production build','Release publication guards','Linux image and isolated runtime'}
 SENSITIVE={'scripts','bin','engines','exports','os','cpu','gypfile','bundledDependencies','bundleDependencies'}
 require=gate.require
@@ -73,7 +73,8 @@ def validate_request(request,config,event,env,production_receipt,now):
     exact(config,CONFIG_KEYS,'CONFIG_SCHEMA')
     require(type(config['schema_version']) is int and config['schema_version']==1 and config['service']=='blog','CONFIG_IDENTITY')
     require(type(config['enabled']) is bool and config['scheduler_app_id']=='5019669' and
-            config['actor_id']==config['sender_id']=='332011818' and config['minimum_release_age_days']==14,'CONFIG_SCHEDULER_OR_AGE')
+            config['actor_id']==config['sender_id']=='332011818' and config['minimum_release_age_days']==14 and
+            config['renovate_actor_id']=='29139614' and type(config['repository_id']) is int and config['repository_id']==1021194725 and isinstance(config['trusted_code'],dict),'CONFIG_SCHEDULER_OR_AGE')
     exact(request,REQUEST_KEYS,'REQUEST_SCHEMA')
     require(type(request['schema_version']) is int and request['schema_version']==1 and request['service']=='blog' and request['phase']=='prepare','PREPARATION_ONLY')
     require(env.get('GITHUB_REPOSITORY')==REPO and env.get('GITHUB_REF')=='refs/heads/main' and
