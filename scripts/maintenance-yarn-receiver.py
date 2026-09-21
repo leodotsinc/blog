@@ -18,6 +18,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import tempfile
 import urllib.parse
 import zipfile
 from zoneinfo import ZoneInfo
@@ -38,8 +39,11 @@ class GitHub(A.Collector):
         self.calls+=1;require(self.calls<=65,'API_REQUEST_LIMIT')
         # gh's authenticated GitHub download follows signed asset redirects;
         # the token stays in the environment, never argv, logs or the artifact.
-        env={'PATH':os.environ['PATH'],'GH_HOST':'github.com','GH_TOKEN':self.token or ''}
-        result=subprocess.run(['gh','api',path,'-H','Accept: application/octet-stream'],env=env,capture_output=True,timeout=20)
+        env={key:os.environ[key] for key in ('PATH','HOME') if key in os.environ}
+        env.update(GH_HOST='github.com',GH_TOKEN=self.token or '')
+        with tempfile.TemporaryDirectory(prefix='blog-readonly-gh-') as private:
+            env.update(GH_CONFIG_DIR=private+'/config',XDG_STATE_HOME=private+'/state')
+            result=subprocess.run(['gh','api',path,'-H','Accept: application/octet-stream'],env=env,capture_output=True,timeout=20)
         require(result.returncode==0 and 0<len(result.stdout)<=limit and
                 'sha256:'+hashlib.sha256(result.stdout).hexdigest()==digest,'BINARY_DOWNLOAD_OR_DIGEST')
         return result.stdout

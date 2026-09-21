@@ -1,7 +1,7 @@
 """Full observation path over fake GitHub, registry and bounded artifact bytes.
 
-The image-receipt validator is a separately tested contract; the fake reader
-below checks its independently collected expectations, not production behavior.
+The real image-receipt validator consumes synthetic signed-metadata/hash
+fixtures; these tests never claim production behavior.
 """
 import base64
 import copy
@@ -16,6 +16,7 @@ import unittest
 import zipfile
 
 import test_release_yarn_admission as F
+import image_receipt as I
 ROOT=Path(__file__).resolve().parents[1]
 SPEC=importlib.util.spec_from_file_location('receiver',ROOT/'scripts/maintenance-yarn-receiver.py');R=importlib.util.module_from_spec(SPEC);SPEC.loader.exec_module(R)
 G=R.G;NOW=datetime(2026,10,3,13,30,tzinfo=timezone.utc)
@@ -35,7 +36,11 @@ class API(F.FakeCollector):
         for name in R.CODE:self.rows[before['files'][name]['oid']]=('trusted '+name).encode()
         self.run={'id':100,'run_attempt':1,'head_sha':F.H,'repository':{'id':1021194725,'full_name':R.REPO},'path':'.github/workflows/ci.yml','event':'pull_request','status':'completed','conclusion':'success','updated_at':NOW.isoformat()}
         security={stage+'/security.json':{'schema_version':1,'status':'passed','image':'sha256:'+('a' if stage=='runtime' else 'b')*64,'packages':100,'observed_at':NOW.isoformat(),'database_updated_at':NOW.isoformat(),'counts':{'CRITICAL':0,'HIGH':0,'MEDIUM':0,'LOW':0,'UNKNOWN':0}} for stage in ('runtime','builder')}
-        self.binary_values={1:self.asset,2:packed(security),3:b'synthetic-functional-artifact'}
+        functional=I.make_receipt('sha256:'+'a'*64,{'version':'0.1.0','revision':F.H,'build_id':'100'},
+                                 {'next':'16.3.3','sharp':'0.35.4','heif':'1.23.2'},
+                                 {'run_id':'100','run_attempt':1,'workflow':'ci.yml','job':'image'})
+        functional['observed_at']=NOW.isoformat().replace('+00:00','Z');functional['harness_sha256']={p:config['trusted_code'][p] for p in I.HARNESS}
+        self.binary_values={1:self.asset,2:packed(security),3:packed({'functional.json':functional})}
         self.artifacts=[{'id':i,'name':'blog-review-'+kind+'-100-1','expired':False,'size_in_bytes':len(self.binary_values[i]),'digest':'sha256:'+hashlib.sha256(self.binary_values[i]).hexdigest(),'workflow_run':{'id':100,'head_sha':F.H,'repository_id':1021194725,'head_repository_id':1021194725}} for i,kind in ((2,'security'),(3,'functional'))]
     def github(self,path):
         self.calls.append(path);tail=path.removeprefix(R.PREFIX)
@@ -76,8 +81,8 @@ class IntegratedObservation(unittest.TestCase):
         self.api=API(self.before,self.after,self.request['base_manifest'],self.config)
     def tearDown(self):self.temp.cleanup()
     def reader(self,raw,metadata,run,expected,now):
-        self.assertEqual(raw,b'synthetic-functional-artifact');self.assertEqual(expected['image_id'],'sha256:'+'a'*64);self.assertEqual(expected['release']['revision'],F.H);self.assertEqual(expected['producer']['workflow'],'ci.yml');self.assertEqual(len(expected['harness_sha256']),3)
-        return {'test_boundary':'synthetic delegated receipt reader','image_id':expected['image_id'],'producer':expected['producer']}
+        self.assertEqual(expected['image_id'],'sha256:'+'a'*64);self.assertEqual(expected['release']['revision'],F.H);self.assertEqual(expected['producer']['workflow'],'ci.yml');self.assertEqual(len(expected['harness_sha256']),3)
+        return I.read_artifact(raw,metadata,run,expected,now)
     def observe(self,clock=lambda:NOW):return R.observe(self.request,self.config,self.event,self.env,self.api,self.root,NOW,self.reader,clock)
     def test_end_to_end_trusted_inputs_remain_observational(self):
         result=self.observe();self.assertEqual(result['status'],'observed_inactive');self.assertFalse(result['deployment_authorized']);self.assertFalse(result['preparation_authorized'])
