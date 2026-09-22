@@ -43,11 +43,10 @@ def identity(request,config,event,env,root,at):
 
 
 def fresh_proof(proof,at):
-    A.fresh(proof['ci']['updated_at'],at)
-    for item in proof['registry']:A.fresh(item['checked_at'],at)
-    for item in proof['review_image_evidence']['security'].values():
-        A.fresh(item['observed_at'],at);A.fresh(item['database_updated_at'],at)
-    A.fresh(proof['review_image_evidence']['functional']['observed_at'],at)
+    # Successful tests/build describe fixed source. The current registry check,
+    # unlike that immutable evidence, must still be fresh immediately at merge.
+    require(A.stamp(proof['ci']['updated_at'])<=at,'CI_FUTURE')
+    registry_rows(proof['registry'],proof['delta'],at,timedelta(minutes=5))
 
 
 def code(api,producer,config,root):
@@ -117,17 +116,28 @@ def registry_rows(rows,delta,at,maximum=timedelta(hours=24)):
         require(at-A.stamp(row['published_at'])>=timedelta(days=14),'IMMATURE_UPSTREAM_RELEASE')
 
 
+def source_security(value,at):
+    """Validate the historical observation, never use it as current permission."""
+    A.exact(value,{'status','code','registry','observed_at'},'SOURCE_SECURITY_SCHEMA')
+    require(A.stamp(value['observed_at'])<=at,'SOURCE_SECURITY_FUTURE')
+    require(isinstance(value['registry'],list) and (
+        value['status']=='passed' and value['code'] is None and 0<len(value['registry'])<=20 or
+        value['status']=='refused' and isinstance(value['code'],str) and
+        re.fullmatch(r'[A-Z][A-Z0-9_]{2,80}',value['code']) and value['registry']==[]),'SOURCE_SECURITY_STATUS')
+
+
 def source_proof(request,config,api,root,ci,at):
     """Consume trusted CI semantics; never parse Yarn or reclassify in a receiver."""
     pr=request['source_pr'];number=int(ci['run_id']);attempt=ci['attempt']
     value,binding=read_json_artifact(api,f'blog-source-qualification-{number}-{attempt}',number,attempt,pr['head_sha'],'source-qualification.json')
-    expected={'schema_version':2,'repository':R.REPO,'run_id':number,'run_attempt':attempt,
+    expected={'schema_version':3,'repository':R.REPO,'run_id':number,'run_attempt':attempt,
         'producer_commit':pr['head_sha'],'producer_base':pr['base_sha'],'head_sha':pr['head_sha'],'tree_sha':pr['tree_sha'],
         'baseline_commit':request['baseline']['git_sha'],'baseline_receipt_sha256':G.sha256(request['base_manifest']),
         'control_sha256':request['control_sha256'],'code_sha256':config['trusted_code'],'status':'passed','code':None}
-    A.exact(value,set(expected)|{'classification','registry','observed_at'},'SOURCE_PROOF_SCHEMA')
+    A.exact(value,set(expected)|{'classification','security','observed_at'},'SOURCE_PROOF_SCHEMA')
     require(type(value['schema_version']) is int and type(value['run_id']) is int and type(value['run_attempt']) is int and all(value[k]==v for k,v in expected.items()),'SOURCE_PROOF_IDENTITY')
-    A.fresh(value['observed_at'],at)
+    require(A.stamp(value['observed_at'])<=at,'SOURCE_PROOF_FUTURE')
+    source_security(value['security'],at)
     base,producer,head=[identity_snapshot(api,sha) for sha in (request['baseline']['git_sha'],pr['base_sha'],pr['head_sha'])]
     require(head['tree']==pr['tree_sha'],'SOURCE_TREE_CHANGED');code(api,producer,config,root)
     changed=lambda left,right:sorted(p for p in set(left['files'])|set(right['files']) if left['files'].get(p)!=right['files'].get(p))
@@ -141,7 +151,6 @@ def source_proof(request,config,api,root,ci,at):
         delta['delta_sha256']==G.sha256({k:v for k,v in delta.items() if k not in {'delta_sha256','deployment_authorized','required_next'}}),'SOURCE_DELTA_IDENTITY')
     require(delta['control']=={'producer_commit':producer['commit'],'path':G.CONTROL,'baseline_blob_oid':base['files'][G.CONTROL]['oid'],
         'producer_blob_oid':producer['files'][G.CONTROL]['oid'],'sha256':request['control_sha256']},'SOURCE_CONTROL_IDENTITY')
-    registry_rows(value['registry'],delta,at)
     return value,binding,producer
 
 
@@ -153,13 +162,14 @@ def prepare(request,config,event,env,api,root,reader,clock=now):
     require(dedup.get('total_count')==0 and dedup.get('artifacts')==[],'DUPLICATE_REQUEST_OR_UNKNOWN')
     main=api.github(PREFIX+'/git/ref/heads/main')
     require(main.get('object',{}).get('sha')==request['source_pr']['base_sha'],'PRODUCER_MAIN_DRIFT')
-    R.source_pr(api,request,config);ci=A.review_ci(request['source_pr']['head_sha'],api,clock())
+    R.source_pr(api,request,config);ci=A.review_ci(request['source_pr']['head_sha'],api,clock(),immutable_source=True)
     qualified,binding,producer=source_proof(request,config,api,root,ci,clock())
-    delta=qualified['classification'];registry=qualified['registry']
-    from image_receipt import read_artifact
-    images=R.image_evidence(api,ci,config,clock(),reader or read_artifact)
+    delta=qualified['classification'];registry=A.review_registry(delta,api,clock())
+    # CI jobs prove the fixed source was built/tested successfully. Review-image
+    # artifacts are not reused as release security: M is built, scanned and
+    # functionally qualified by Deploy, then checked by the host before rollout.
     result={'schema_version':1,'service':'blog','status':'prepared_pending_merge','request_id':request['request_id'],
-            'request':request,'delta':delta,'registry':registry,'source_artifact':binding,'ci':ci,'review_image_evidence':images,
+            'request':request,'delta':delta,'registry':registry,'source_artifact':binding,'ci':ci,
             'producer_commit':producer['commit'],'observed_at':clock().isoformat(),'deployment_authorized':False}
     R.source_pr(api,request,config)
     require(api.github(PREFIX+'/git/ref/heads/main').get('object',{}).get('sha')==producer['commit'],'MAIN_CHANGED_DURING_COLLECTION')
@@ -242,16 +252,15 @@ def preflight(value,request,config,event,env,api,root,at,clock=now, *, with_proo
     require(value['producer_commit']==request['source_pr']['base_sha'] and value['head_sha']==request['source_pr']['head_sha'] and
             value['tree_sha']==request['source_pr']['tree_sha'] and value['baseline_receipt_sha256']==request['baseline']['receipt_sha256'],'CONTEXT_SOURCE_CHANGED')
     require(R.published_baseline(api)==request['base_manifest'],'PUBLISHED_BASELINE_CHANGED')
-    ci=A.review_ci(request['source_pr']['head_sha'],api,clock())
+    ci=A.review_ci(request['source_pr']['head_sha'],api,clock(),immutable_source=True)
     qualified,binding,producer=source_proof(request,config,api,root,ci,clock())
     delta=qualified['classification']
     require(delta['delta_sha256']==value['delta_sha256'],'CUMULATIVE_DELTA_CHANGED')
     commit=api.github(PREFIX+'/commits/'+value['merged_sha'])
     merged_identity(commit,api.github(PREFIX+'/git/ref/heads/main'),request)
     require(int(ci['run_id'])==value['evidence_run_id'],'CI_RUN_CHANGED')
-    registry=qualified['registry']
-    final=clock();identity(request,config,event,env,root,final);A.fresh(ci['updated_at'],final)
-    for item in registry:A.fresh(item['checked_at'],final)
+    final=clock();identity(request,config,event,env,root,final)
+    require(A.stamp(ci['updated_at'])<=final,'CI_FUTURE')
     # Checked once more after all remote reads, immediately before the caller's
     # build/publish step. Host performs its own final authorization under locks.
     require(api.github(PREFIX+'/git/ref/heads/main').get('object',{}).get('sha')==value['merged_sha'],'MAIN_CHANGED_AFTER_PREFLIGHT')
@@ -267,7 +276,7 @@ def refresh_registry(context,request,config,env,api,root,manifest,at,qualified=N
             manifest['source_repository']=='https://github.com/'+R.REPO and manifest['build']['id']==str(context['release_run_id']) and
             manifest['build']['attempt']==int(env['GITHUB_RUN_ATTEMPT']) and manifest['deployment']['status']=='built','REGISTRY_MANIFEST_IDENTITY')
     if qualified is None:
-        ci=A.review_ci(context['head_sha'],api,at)
+        ci=A.review_ci(context['head_sha'],api,at,immutable_source=True)
         require(int(ci['run_id'])==context['evidence_run_id'],'CI_RUN_CHANGED')
         proof,binding,_=source_proof(request,config,api,root,ci,at)
     else:proof,binding=qualified
@@ -285,10 +294,11 @@ def source_review(event,env,api,root,local,at):
     """CI source analysis; trusted consumers authenticate its producer separately."""
     pr=event.get('pull_request',{})
     head=pr.get('head',{}).get('sha');producer=pr.get('base',{}).get('sha')
-    result={'schema_version':2,'repository':R.REPO,'run_id':int(env['GITHUB_RUN_ID']),
+    result={'schema_version':3,'repository':R.REPO,'run_id':int(env['GITHUB_RUN_ID']),
             'run_attempt':int(env['GITHUB_RUN_ATTEMPT']),'producer_commit':head,'producer_base':producer,
             'head_sha':head,'tree_sha':None,'baseline_commit':None,'control_sha256':None,
-            'baseline_receipt_sha256':None,'classification':None,'registry':[],'code_sha256':{},
+            'baseline_receipt_sha256':None,'classification':None,'code_sha256':{},
+            'security':{'status':'refused','code':'SOURCE_REVIEW_INCOMPLETE','registry':[],'observed_at':at.isoformat()},
             'observed_at':at.isoformat(),'status':'refused','code':'SOURCE_REVIEW_INCOMPLETE'}
     try:
         require(env.get('GITHUB_REPOSITORY')==R.REPO and env.get('GITHUB_EVENT_NAME')=='pull_request' and
@@ -306,8 +316,13 @@ def source_review(event,env,api,root,local,at):
         R.source_pr(api,request,config)
         require(api.github(PREFIX+'/git/ref/heads/main').get('object',{}).get('sha')==producer,'SOURCE_REVIEW_BASE_DRIFT')
         delta,_=source(request,config,api)
-        registry=A.review_registry(delta,api,at)
-        result.update(status='passed',code=None,classification=delta,registry=registry)
+        result.update(status='passed',code=None,classification=delta)
+        try:
+            rows=A.review_registry(delta,api,at)
+            result['security'].update(status='passed',code=None,registry=rows)
+        except Exception as error:
+            message=str(error)
+            result['security']['code']=message if re.fullmatch(r'[A-Z][A-Z0-9_]{2,80}',message) else 'SOURCE_SECURITY_UNKNOWN'
     except Exception as error:
         message=str(error);result['code']=message if re.fullmatch(r'[A-Z][A-Z0-9_]{2,80}',message) else 'SOURCE_REVIEW_UNKNOWN'
     return result

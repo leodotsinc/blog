@@ -91,16 +91,17 @@ class Execution(unittest.TestCase):
         self.assertEqual(set(context),E.CONTEXT_KEYS)
         result=E.preflight(context,self.request,self.config,self.event,self.env,self.api,self.root,NOW,clock=lambda:NOW)
         self.assertEqual(result['delta_sha256'],proof['delta']['delta_sha256'])
-    def test_nominal_prepare_and_preflight_do_not_classify_parse_yarn_or_query_registry(self):
+    def test_prepare_refreshes_only_registry_and_preflight_reuses_immutable_classification(self):
         with patch.object(G,'classify',side_effect=AssertionError('must stay in CI')), \
              patch.object(G,'parse_yarn',side_effect=AssertionError('no runtime Yarn parser')), \
-             patch.object(self.api,'registry',side_effect=AssertionError('release refresh only')):
+             patch.object(self.api,'registry',wraps=self.api.registry) as registry:
             proof=self.prepare();context=E.context(self.request,proof,M,'200');self.api.main=M
             E.preflight(context,self.request,self.config,self.event,self.env,self.api,self.root,NOW,clock=lambda:NOW)
+            self.assertEqual(registry.call_count,len(proof['delta']['changes']))
     def test_proof_missing_code_hash_source_drift_unknown_and_staleness_refuse_before_merge(self):
         original=copy.deepcopy(self.source)
         for key,bad in [('schema_version',1),('code_sha256',{}),('producer_base',H),('head_sha',B),('classification',{}),
-                        ('registry',[]),('observed_at',(NOW-timedelta(hours=25)).isoformat()),('status','refused')]:
+                        ('security',{}),('observed_at',(NOW+timedelta(seconds=1)).isoformat()),('status','refused')]:
             value={**copy.deepcopy(original),key:bad};self.install_proof(value)
             with self.subTest(key=key),self.assertRaises((ValueError,KeyError)):self.prepare()
             self.assertEqual(self.api.mutations,[])
@@ -129,6 +130,50 @@ class Execution(unittest.TestCase):
         self.api.main=M;denied=E.source_review(event,env,self.api,self.root,self.head,NOW)
         self.assertEqual(denied['status'],'refused');self.assertIsNone(denied['classification']);self.assertEqual(denied['code'],'SOURCE_REVIEW_BASE_DRIFT')
         self.assertEqual(self.api.mutations,[])
+    def test_immature_source_keeps_authenticated_classification_and_matures_without_new_ci(self):
+        prior=NOW-timedelta(days=15)
+        original=self.api.registry
+        def metadata(name):
+            value=original(name)
+            for version in value['time']:value['time'][version]=(NOW-timedelta(days=16)).isoformat()
+            return value
+        with patch.object(self.api,'registry',side_effect=metadata):
+            value=E.source_review(self.source_event,self.source_env,self.api,self.root,self.head,prior)
+            self.assertEqual(value['schema_version'],3);self.assertEqual(value['status'],'passed')
+            self.assertIsNone(value['code']);self.assertIsNotNone(value['classification'])
+            self.assertEqual(value['security']['status'],'refused')
+            self.assertEqual(value['security']['code'],'IMMATURE_UPSTREAM_RELEASE')
+            self.install_proof(value);self.api.run['updated_at']=prior.isoformat()
+            # PR review images have expired; their prior successful CI job remains
+            # source evidence. Actual release image gates are not those artifacts.
+            self.api.artifacts=[a for a in self.api.artifacts if a['id']==4]
+            with patch.object(G,'classify',side_effect=AssertionError('CI only')):
+                proof=self.prepare()
+            self.assertEqual(proof['ci']['attempt'],1)
+            self.assertEqual(proof['delta'],value['classification'])
+            self.assertNotIn('review_image_evidence',proof)
+            self.assertEqual(len(proof['registry']),len(value['classification']['changes']))
+        self.assertEqual(self.api.mutations,[])
+    def test_security_unknown_or_advisory_never_becomes_current_merge_permission(self):
+        for failure in ('IMMATURE_UPSTREAM_RELEASE','AFFECTING_OFFICIAL_ADVISORY','API_UNAVAILABLE'):
+            with self.subTest(failure=failure),patch.object(self.api,'registry',side_effect=G.Refusal(failure)):
+                value=E.source_review(self.source_event,self.source_env,self.api,self.root,self.head,NOW)
+                self.assertEqual(value['status'],'passed');self.assertEqual(value['security']['status'],'refused')
+                self.assertEqual(value['security']['code'],failure);self.install_proof(value)
+                with self.assertRaisesRegex(ValueError,failure):self.prepare()
+        self.assertEqual(self.api.mutations,[])
+    def test_classifier_failure_cannot_be_misread_as_temporal_refusal(self):
+        with patch.object(G,'classify',side_effect=G.Refusal('MAJOR_OR_ZERO_MINOR_REFUSED')):
+            value=E.source_review(self.source_event,self.source_env,self.api,self.root,self.head,NOW)
+        self.assertEqual(value['status'],'refused');self.assertIsNone(value['classification'])
+        self.install_proof(value)
+        with self.assertRaisesRegex(ValueError,'SOURCE_PROOF_IDENTITY'):self.prepare()
+        self.assertEqual(self.api.mutations,[])
+    def test_old_ci_failure_or_missing_source_artifact_remains_refused(self):
+        self.api.run.update(updated_at=(NOW-timedelta(days=20)).isoformat(),conclusion='failure')
+        with self.assertRaisesRegex(ValueError,'CI_NOT_EXACT_SUCCESS'):self.prepare()
+        self.api.run['conclusion']='success';self.api.artifacts=[]
+        with self.assertRaisesRegex(ValueError,'SOURCE_ARTIFACT_MISSING'):self.prepare()
     def test_source_proof_size_is_bounded_and_never_truncates_to_positive(self):
         output=self.root/'source-qualification.json'
         value={'status':'passed','code':None,'classification':{'oversize':'x'*(128*1024)}}
@@ -163,10 +208,10 @@ class Execution(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'ROOT_APPROVED_CONTROL_DRIFT'):self.prepare()
     def test_failures_before_merge_do_not_mutate(self):
         proof=self.prepare()
-        for kind in ('expired','ci_expired','missing_reservation','drift','clock_boundary'):
+        for kind in ('expired','registry_expired','missing_reservation','drift','clock_boundary'):
             journal={'status':'request_reserved','request_id':self.request['request_id']};data=copy.deepcopy(proof);clock=lambda:NOW
             if kind=='expired':clock=lambda:NOW+timedelta(hours=1)
-            if kind=='ci_expired':data['ci']['updated_at']=(NOW-timedelta(hours=24,seconds=1)).isoformat()
+            if kind=='registry_expired':data['registry'][0]['checked_at']=(NOW-timedelta(minutes=5,seconds=1)).isoformat()
             if kind=='missing_reservation':journal['status']='unknown'
             if kind=='drift':self.api.main=H
             if kind=='clock_boundary':clock=lambda:NOW+timedelta(minutes=30,seconds=-5)
@@ -193,7 +238,7 @@ class Execution(unittest.TestCase):
         with self.assertRaises(KeyboardInterrupt):E.merge(proof,self.request,self.config,self.event,self.env,self.api,self.root,journal,clock=lambda:NOW,persist=lambda j:saved.append(copy.deepcopy(j)))
         self.assertEqual(len(self.api.mutations),1);self.assertEqual(saved[-1]['status'],'merge_pending_reconciliation')
     def test_evidence_expiring_during_last_network_read_refuses_merge(self):
-        proof=self.prepare();proof['ci']['updated_at']=(NOW-timedelta(hours=24)+timedelta(seconds=1)).isoformat()
+        proof=self.prepare();proof['registry'][0]['checked_at']=(NOW-timedelta(minutes=5)+timedelta(seconds=1)).isoformat()
         journal={'status':'request_reserved','request_id':self.request['request_id']};ticks=iter([NOW,NOW+timedelta(seconds=2)])
         with self.assertRaisesRegex(ValueError,'STALE_OR_FUTURE'):E.merge(proof,self.request,self.config,self.event,self.env,self.api,self.root,journal,clock=lambda:next(ticks))
         self.assertEqual(self.api.mutations,[])
