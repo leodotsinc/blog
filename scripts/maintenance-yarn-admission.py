@@ -177,7 +177,7 @@ def review_registry(delta,collector,now):
     return proof
 
 
-def review_ci(head,collector,now):
+def review_ci(head,collector,now,*,immutable_source=False):
     require(SHA.fullmatch(head),'CI_SOURCE_SHA')
     prefix='/repos/'+REPO
     workflow=collector.github(prefix+'/actions/workflows/ci.yml')
@@ -191,7 +191,8 @@ def review_ci(head,collector,now):
     require(run.get('head_sha')==head and run.get('repository',{}).get('full_name')==REPO and
             run.get('path')=='.github/workflows/ci.yml' and run.get('event') in ('push','pull_request','workflow_dispatch') and
             run.get('status')=='completed' and run.get('conclusion')=='success','CI_NOT_EXACT_SUCCESS')
-    fresh(run.get('updated_at'),now)
+    require(stamp(run.get('updated_at'))<=now,'CI_FUTURE')
+    if not immutable_source:fresh(run.get('updated_at'),now)
     attempt=run.get('run_attempt');require(type(attempt) is int and attempt>0,'CI_ATTEMPT')
     jobs=collector.github(prefix+f'/actions/runs/{run["id"]}/attempts/{attempt}/jobs?per_page=100&page=1')
     require(jobs.get('total_count')==len(CI_JOBS) and len(jobs.get('jobs',[]))==len(CI_JOBS) and
