@@ -1,5 +1,13 @@
 # Blog — plano atual
 
+## Cota de GitHub Actions
+
+Iterar e validar localmente; não abrir PR nem enviar commit remoto por tentativa.
+PR em rascunho aguarda `ready_for_review`. Um push em `main` é candidato à CI e
+ao deploy automático, portanto publicar somente o lote final revisado. A
+concorrência cancela apenas CI anterior da mesma PR, nunca `main` ou deploy.
+Falha exige diagnóstico antes de rerun; não usar skip de CI para publicar.
+
 ## Hero e desempenho
 
 - Hero e métricas usam fluxo vertical; preservar o nome inteiro e métricas legíveis de 320 px a desktop.

@@ -3,6 +3,7 @@ name: CI
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
   workflow_dispatch:
@@ -11,11 +12,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: blog-ci-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: blog-ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   source:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Source tests and production build
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -38,6 +40,7 @@ jobs:
           NEXT_TELEMETRY_DISABLED: 1
         run: yarn build
   release_contract:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Release publication guards
     permissions:
       contents: read
@@ -65,7 +68,7 @@ jobs:
           retention-days: 45
   image:
     name: Linux image and isolated runtime
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    if: (github.event_name == 'pull_request' && !github.event.pull_request.draft) || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
