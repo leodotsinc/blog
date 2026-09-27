@@ -1,0 +1,132 @@
+name: Reviewed Blog adoption bootstrap
+on:
+  workflow_dispatch:
+    inputs:
+      review:
+        description: Exact personally reviewed bootstrap identities and one-hour TTL; host approval is independent
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: blog-production-release
+  cancel-in-progress: false
+jobs:
+  verify:
+    name: Authenticate original preparation and reviewed cumulative source
+    if: github.repository == 'leodotsinc/blog' && github.ref == 'refs/heads/main' && github.actor_id == '22529012' && github.triggering_actor == 'leodots'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      packages: read
+    outputs:
+      source_sha: ${{ steps.validate.outputs.source_sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Read closed review without shell interpolation
+        env:
+          REVIEW_JSON: ${{ inputs.review }}
+        run: |
+          umask 077
+          python3 - <<'PY'
+          import os,pathlib
+          raw=os.environ['REVIEW_JSON'].encode()
+          if not 0<len(raw)<=16384: raise SystemExit('BOOTSTRAP_INPUT_SIZE')
+          pathlib.Path('bootstrap-request.json').write_bytes(raw)
+          PY
+      - name: Authenticate source, prepare flag, original manifest and fresh proof
+        id: validate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/reviewed-bootstrap.py validate
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Pull exact prepared digest and compare scanned image identity
+        env:
+          IMAGE: ${{ steps.validate.outputs.image }}
+        run: |
+          set -euo pipefail
+          docker pull "$IMAGE"
+          image_id=$(docker image inspect "$IMAGE" --format '{{.Id}}')
+          python3 scripts/reviewed-bootstrap.py image --image-id "$image_id"
+      - name: Preserve original build manifest bytes and build run identity
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: blog-reviewed-bootstrap-release
+          path: release.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Retain sanitized review proof
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: blog-reviewed-bootstrap-proof-${{ github.run_id }}-${{ github.run_attempt }}
+          path: bootstrap-proof.json
+          if-no-files-found: error
+          retention-days: 7
+  rollout:
+    name: Host-authorized exact bootstrap rollout
+    needs: verify
+    permissions:
+      contents: read
+      packages: read
+      actions: read
+    uses: leodotsinc/.github/.github/workflows/deploy.yml@75bb057aaa633335b54c38f4729f96879264e070
+    with:
+      app_id: blog
+      release_artifact: blog-reviewed-bootstrap-release
+      release_file: release.json
+      release_sha: ${{ needs.verify.outputs.source_sha }}
+      vps_host: ${{ vars.VPS_IP }}
+      ssh_port: ${{ vars.SSH_PORT }}
+      deploy_user: ${{ vars.DEPLOY_USER }}
+    secrets:
+      deploy_key: ${{ secrets.BLOG_DEPLOY_KEY }}
+      known_hosts: ${{ secrets.BLOG_SSH_KNOWN_HOSTS }}
+  publish:
+    needs: [verify,rollout]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ needs.verify.outputs.source_sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: ${{ needs.rollout.outputs.result_artifact }}
+      - name: Publish only verified original release identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json,pathlib
+          result=json.loads(pathlib.Path('deployment-result.json').read_text())
+          if result.get('ok') is not True or result.get('release',{}).get('deployment',{}).get('status')!='verified': raise SystemExit('BOOTSTRAP_NOT_VERIFIED')
+          pathlib.Path('deployed-release.json').write_text(json.dumps(result['release'],indent=2)+'\n')
+          PY
+          python3 scripts/publish-release.py deployed-release.json
+  reconcile:
+    needs: [verify,rollout,publish]
+    permissions:
+      actions: read
+      contents: read
+    uses: leodotsinc/.github/.github/workflows/reconcile.yml@5242d92c3bb190f207fd202d21b3df5338ad52e4
+    with:
+      app_id: blog
+      result_artifact: ${{ needs.rollout.outputs.result_artifact }}
+      result_file: deployment-result.json
+      source_sha: ${{ needs.verify.outputs.source_sha }}
+      app_client_id: ${{ vars.CLOUDBOX_INFRA_RECONCILE_CLIENT_ID }}
+    secrets:
+      app_private_key: ${{ secrets.CLOUDBOX_INFRA_RECONCILE_PRIVATE_KEY }}
