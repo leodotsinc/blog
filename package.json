@@ -54,9 +54,9 @@
     "typescript": "^5"
   },
   "resolutions": {
+    "@contentlayer2/utils": "file:vendor/contentlayer2-utils-0.5.8.tgz",
     "@hono/node-server": "2.1.1",
     "@grpc/grpc-js": "1.14.5",
-    "@opentelemetry/propagator-jaeger": "2.11.0",
     "brace-expansion": "5.0.12",
     "ip-address": "10.7.1",
     "js-yaml": "3.15.2",

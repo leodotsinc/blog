@@ -44,6 +44,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/yarn.lock ./
+COPY --from=builder /app/vendor/contentlayer2-utils-0.5.8.tgz ./vendor/contentlayer2-utils-0.5.8.tgz
 
 RUN npm install -g corepack && corepack enable && yarn install --production --frozen-lockfile
 

@@ -1,0 +1,330 @@
+--- a/package.json
++++ b/package.json
+@@ -48,26 +48,12 @@
+   "peerDependenciesMeta": {
+     "@effect-ts/core": {
+       "optional": true
+-    },
+-    "@effect-ts/otel": {
+-      "optional": true
+-    },
+-    "@effect-ts/otel-node": {
+-      "optional": true
+     }
+   },
+   "dependencies": {
+     "@effect-ts/core": "^0.60.5",
+-    "@effect-ts/otel": "^0.15.1",
+-    "@effect-ts/otel-sdk-trace-node": "^0.15.1",
+     "@js-temporal/polyfill": "^0.4.4",
+     "@opentelemetry/api": "^1.9.0",
+-    "@opentelemetry/core": "^1.30.1",
+-    "@opentelemetry/exporter-trace-otlp-grpc": "^0.57.1",
+-    "@opentelemetry/resources": "^1.30.1",
+-    "@opentelemetry/sdk-trace-base": "^1.30.1",
+-    "@opentelemetry/sdk-trace-node": "^1.30.1",
+-    "@opentelemetry/semantic-conventions": "^1.28.0",
+     "chokidar": "^3.5.3",
+     "hash-wasm": "^4.11.0",
+     "inflection": "^3.0.0",
+@@ -80,4 +66,4 @@
+     "@types/inflection": "^1.13.0"
+   },
+   "license": "MIT"
+-}
+\ No newline at end of file
++}
+--- a/src/effect/OT.ts
++++ b/src/effect/OT.ts
+@@ -1,59 +1,16 @@
+-import { Effect as T, Managed as M, Option as O, pipe } from '@effect-ts/core'
+-import { pretty } from '@effect-ts/core/Effect/Cause/Pretty'
+-import * as S from '@effect-ts/core/Effect/Experimental/Stream'
+-import type { Has } from '@effect-ts/core/Has'
+-import * as OT from '@effect-ts/otel'
+-import * as OTApi from '@opentelemetry/api'
++import * as T from '@effect-ts/core/Effect'
++import type * as S from '@effect-ts/core/Effect/Experimental/Stream'
+ 
+-export * from '@effect-ts/otel'
+-export type HasSpan = Has<OT.Span>
++// Contentlayer's generated content does not require a tracing environment.
++// Preserve the Effect and Stream values while dropping the obsolete OTel 1 SDK.
++export type HasTracer = unknown
++export type HasSpan = unknown
+ 
+-export const withStreamSpan =
+-  (name: string, options?: OTApi.SpanOptions, ctx?: OTApi.Context) =>
+-  <R, E, A>(stream: S.Stream<R & HasSpan, E, A>): S.Stream<R & OT.HasTracer, E, A> =>
+-    pipe(
+-      // NOTE we're using this weird `S.access` + `S.chain` here since `T.access` seems to be buggy
+-      // TODO fix this with Effect 2 🤠
+-      S.access((r: R & OT.HasTracer) => r),
+-      S.chain((r) =>
+-        pipe(
+-          M.gen(function* ($) {
+-            const span = yield* $(
+-              M.makeExit_(
+-                pipe(
+-                  T.succeedWith(() => {
+-                    const { tracer } = OT.Tracer.read(r)
++export const withSpan = (_name: string, _options?: unknown) =>
++  <R, E, A>(effect: T.Effect<R, E, A>): T.Effect<R, E, A> => effect
+ 
+-                    const maybeSpan = OT.Span.readOption(r)
+-                    if (ctx) {
+-                      return tracer.startSpan(name, options, ctx)
+-                    }
+-                    if (options?.root !== true && O.isSome(maybeSpan)) {
+-                      const ctx = OTApi.trace.setSpan(OTApi.context.active(), maybeSpan.value.span)
+-                      return tracer.startSpan(name, options, ctx)
+-                    }
+-                    return tracer.startSpan(name, { ...options, root: true })
+-                  }),
+-                ),
++export const addAttribute = (_name: string, _value: unknown) => T.succeed(undefined)
++export const addEvent = (_name: string, _attributes?: unknown) => T.succeed(undefined)
+ 
+-                (s, e) =>
+-                  T.succeedWith(() => {
+-                    if (e._tag === 'Failure') {
+-                      s.setAttribute('error.type', 'Fiber Failure')
+-                      s.setAttribute('error.message', 'An Effect Has A Failure')
+-                      s.setAttribute('error.stack', pretty(e.cause))
+-                      s.setStatus({ code: OTApi.SpanStatusCode.ERROR })
+-                    } else {
+-                      s.setStatus({ code: OTApi.SpanStatusCode.OK })
+-                    }
+-                    s.end()
+-                  }),
+-              ),
+-            )
+-
+-            return pipe(stream, S.provideAll({ ...r, ...OT.Span.has(new OT.SpanImpl(span)) }))
+-          }),
+-          S.unwrapManaged,
+-        ),
+-      ),
+-    )
++export const withStreamSpan = (_name: string, _options?: unknown, _context?: unknown) =>
++  <R, E, A>(stream: S.Stream<R, E, A>): S.Stream<R, E, A> => stream
+--- a/src/fs-in-memory.ts
++++ b/src/fs-in-memory.ts
+@@ -1,10 +1,8 @@
+-import type { Stats } from 'node:fs'
+-
+ import { fs } from 'memfs'
+ import type { JsonValue } from 'type-fest'
+ 
+ import { L, OT, pipe, T } from './effect/index.js'
+-import type { SymlinkType } from './fs_.js'
++import type { FsStat, SymlinkType } from './fs_.js'
+ import {
+   FileNotFoundError,
+   FileOrDirNotFoundError,
+@@ -37,7 +35,7 @@
+   )
+ }
+ 
+-export const stat = (filePath: string): T.Effect<unknown, FileNotFoundError | StatError, Stats> => {
++export const stat = (filePath: string): T.Effect<unknown, FileNotFoundError | StatError, FsStat> => {
+   return T.tryCatch(
+     () => fs.statSync(filePath),
+     (error: any) => {
+--- a/src/fs_.ts
++++ b/src/fs_.ts
+@@ -1,5 +1,9 @@
+ import type { Stats } from 'node:fs'
+ 
++// memfs implements the fields Contentlayer uses, without Node 26's new
++// nanosecond timestamp accessors on Stats.
++export type FsStat = Pick<Stats, 'isFile' | 'isDirectory' | 'isSymbolicLink' | 'mtime'>
++
+ import { Tagged } from '@effect-ts/core/Case'
+ import type { JsonValue } from 'type-fest'
+ 
+@@ -67,7 +71,7 @@
+ export interface Fs {
+   fileOrDirExists: (pathLike: string) => T.Effect<OT.HasTracer, StatError, boolean>
+   symlinkExists: (pathLike: string) => T.Effect<unknown, StatError, boolean>
+-  stat: (filePath: string) => T.Effect<unknown, FileNotFoundError | StatError, Stats>
++  stat: (filePath: string) => T.Effect<unknown, FileNotFoundError | StatError, FsStat>
+   readFile: (filePath: string) => T.Effect<OT.HasTracer, ReadFileError | FileNotFoundError, string>
+   readFileBuffer: (filePath: string) => T.Effect<OT.HasTracer, ReadFileError | FileNotFoundError, Buffer>
+   readFileJson: <T extends JsonValue = JsonValue>(
+--- a/src/node/fs.ts
++++ b/src/node/fs.ts
+@@ -2,7 +2,7 @@
+ import { promises as fs } from 'node:fs'
+ 
+ import { pipe } from '@effect-ts/core'
+-import * as OT from '@effect-ts/otel'
++import * as OT from '../effect/OT.js'
+ import type { JsonValue } from 'type-fest'
+ 
+ import { L, T } from '../effect/index.js'
+--- a/src/tracing-effect/index.ts
++++ b/src/tracing-effect/index.ts
+@@ -1,58 +1,12 @@
+-import * as T from '@effect-ts/core/Effect'
+-import type { Clock } from '@effect-ts/core/Effect/Clock'
+-import type * as L from '@effect-ts/core/Effect/Layer'
+-import type { Has } from '@effect-ts/core/Has'
+-import * as OT from '@effect-ts/otel'
+-import * as OTNode from '@effect-ts/otel-sdk-trace-node'
+-import { Resource } from '@opentelemetry/resources'
+-import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions'
++import type * as T from '@effect-ts/core/Effect'
+ 
+-import { LiveSimpleProcessor, makeOTLPTraceExporterConfigLayer } from './otel-exporter-trace-otlp-grpc.js'
++// The Blog does not export Contentlayer build traces. Keep the provider API so
++// Contentlayer's Effect composition and document generation stay unchanged.
++export const DummyTracing = {}
+ 
+-//
+-// Jaeger Tracer (via Grpc Collector)
+-//
++export const provideDummyTracing = <R, E, A>(effect: T.Effect<R, E, A>): T.Effect<R, E, A> => effect
+ 
+-const makeNodeTracingProvider = (serviceName: string) =>
+-  OTNode.NodeProvider({
+-    resource: new Resource({ [SemanticResourceAttributes.SERVICE_NAME]: serviceName }),
+-  })
++export const provideTracing = (_serviceName: string, _tracer: 'dummy' | 'otel' | 'based-on-env' = 'based-on-env') =>
++  provideDummyTracing
+ 
+-const CollectorConfig = makeOTLPTraceExporterConfigLayer({})
+-
+-const makeJaegerNodeTracingLayer = (serviceName: string): L.Layer<Has<Clock>, never, OT.HasTracer> =>
+-  CollectorConfig['>+>'](OT.LiveTracer['<<<'](makeNodeTracingProvider(serviceName)['>+>'](LiveSimpleProcessor)))
+-
+-export const provideJaegerTracing = (serviceName: string) => T.provideSomeLayer(makeJaegerNodeTracingLayer(serviceName))
+-
+-// Only use Otel tracing if explicitly enabled via env var
+-export const provideTracing = (
+-  tracingServiceName: string,
+-  tracer: 'dummy' | 'otel' | 'based-on-env' = 'based-on-env',
+-) => {
+-  if (tracer === 'otel' || (tracer === 'based-on-env' && process.env.CL_OTEL !== undefined)) {
+-    return provideJaegerTracing(tracingServiceName)
+-  }
+-
+-  return provideDummyTracing
+-}
+-
+-//
+-// Dummy Tracer
+-//
+-
+-// TODO change CLI entrypoints so this isn't needed
+-const dummyProps = {} as any
+-export const DummyTracing = OT.Tracer.has({
+-  [OT.TracerSymbol]: OT.TracerSymbol,
+-  tracer: {
+-    startSpan: () => ({
+-      setAttribute: () => null,
+-      setStatus: () => null,
+-      end: () => null,
+-    }),
+-    ...dummyProps,
+-  },
+-})
+-
+-export const provideDummyTracing = T.provide(DummyTracing)
++export const provideJaegerTracing = (_serviceName: string) => provideDummyTracing
+--- a/src/tracing-effect/otel-exporter-trace-otlp-grpc.ts
++++ /dev/null
+@@ -1,44 +0,0 @@
+-// Inline to avoid peer dependency issues
+-// https://github.com/Effect-Deprecated/otel/blob/ee7aa57e42e1bcdf9af98815bc601279f54e26ec/packages/otel-exporter-trace-otlp-grpc/src/index.ts
+-import * as T from '@effect-ts/core/Effect'
+-import * as L from '@effect-ts/core/Effect/Layer'
+-import * as M from '@effect-ts/core/Effect/Managed'
+-import { pipe } from '@effect-ts/core/Function'
+-import { tag } from '@effect-ts/core/Has'
+-import { SimpleProcessor } from '@effect-ts/otel'
+-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-grpc'
+-import type { OTLPGRPCExporterConfigNode } from '@opentelemetry/otlp-grpc-exporter-base'
+-
+-export const OTLPTraceExporterConfigSymbol = Symbol()
+-
+-export class OTLPTraceExporterConfig {
+-  readonly [OTLPTraceExporterConfigSymbol] = OTLPTraceExporterConfigSymbol
+-  constructor(readonly config: OTLPGRPCExporterConfigNode) {}
+-}
+-
+-export const OTLPTraceExporterConfigTag = tag<OTLPTraceExporterConfig>(OTLPTraceExporterConfigSymbol)
+-
+-export const makeOTLPTraceExporterConfigLayer = (config: OTLPGRPCExporterConfigNode) =>
+-  L.fromEffect(OTLPTraceExporterConfigTag)(T.succeedWith(() => new OTLPTraceExporterConfig(config))).setKey(
+-    OTLPTraceExporterConfigTag.key,
+-  )
+-
+-export const makeOTLPTraceExporterConfigLayerM = <R, E>(config: T.Effect<R, E, OTLPGRPCExporterConfigNode>) =>
+-  L.fromEffect(OTLPTraceExporterConfigTag)(T.map_(config, (_) => new OTLPTraceExporterConfig(_))).setKey(
+-    OTLPTraceExporterConfigTag.key,
+-  )
+-
+-export const makeTracingSpanExporter = M.gen(function* (_) {
+-  const { config } = yield* _(OTLPTraceExporterConfigTag)
+-
+-  const spanExporter = yield* _(
+-    pipe(
+-      T.succeedWith(() => new OTLPTraceExporter(config)),
+-      M.make((exporter) => T.promise(() => exporter.shutdown())),
+-    ),
+-  )
+-
+-  return spanExporter
+-})
+-
+-export const LiveSimpleProcessor = SimpleProcessor(makeTracingSpanExporter)
+--- /dev/null
++++ b/LICENSE
+@@ -0,0 +1,22 @@
++MIT License
++
++Copyright (c) 2022 Stackbit Inc.
++Copyright (c) 2022 Johannes Schickling
++
++Permission is hereby granted, free of charge, to any person obtaining a copy
++of this software and associated documentation files (the "Software"), to deal
++in the Software without restriction, including without limitation the rights
++to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++copies of the Software, and to permit persons to whom the Software is
++furnished to do so, subject to the following conditions:
++
++The above copyright notice and this permission notice shall be included in all
++copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++SOFTWARE.
+--- /dev/null
++++ b/tsconfig.fork.json
+@@ -0,0 +1,21 @@
++{
++  "compilerOptions": {
++    "target": "ES2020",
++    "module": "ES2020",
++    "moduleResolution": "node",
++    "lib": ["ES2020", "DOM"],
++    "strict": true,
++    "noUncheckedIndexedAccess": true,
++    "isolatedModules": true,
++    "esModuleInterop": true,
++    "allowSyntheticDefaultImports": true,
++    "resolveJsonModule": true,
++    "skipLibCheck": true,
++    "declaration": true,
++    "declarationMap": true,
++    "sourceMap": true,
++    "rootDir": "src",
++    "outDir": "dist"
++  },
++  "include": ["src/**/*.ts"]
++}

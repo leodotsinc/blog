@@ -32,6 +32,8 @@ jobs:
           node-version: '26'
       - name: Install locked dependencies
         run: npm install -g corepack && corepack enable && yarn install --frozen-lockfile
+      - name: Verify Contentlayer fork source, types and archive
+        run: scripts/rebuild-contentlayer-fork.sh
       - name: Test existing lab and release metadata
         run: |
           yarn test:lab
