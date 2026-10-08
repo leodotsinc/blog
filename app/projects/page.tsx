@@ -5,6 +5,9 @@ import ContentCard from "@/components/shared/ContentCard";
 export const metadata = {
   title: "Projects - Leo",
   description: "My projects and work",
+  alternates: {
+    canonical: "/projects",
+  },
 };
 
 export default function ProjectsPage() {

@@ -5,6 +5,9 @@ import { getBlogIndexPosts } from "@/lib/posts";
 export const metadata = {
   title: "Blog - Leo",
   description: "Articles about software engineering, architecture, and development",
+  alternates: {
+    canonical: "/blog",
+  },
 };
 
 export default function BlogPage() {

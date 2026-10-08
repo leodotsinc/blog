@@ -15,6 +15,10 @@ const montSerrat = Montserrat({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://leodots.com"),
+  alternates: {
+    canonical: "./",
+  },
   title: {
     default: "Leonardo Torres — Tech Lead & Solutions Architect",
     template: "%s · Leonardo Torres",
