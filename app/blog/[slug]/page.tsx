@@ -25,6 +25,9 @@ export async function generateMetadata({ params }: PageProps) {
   return {
     title: `${postBundle.defaultPost.title} - Leo`,
     description: postBundle.defaultPost.description,
+    alternates: {
+      canonical: `/blog/${slug}`,
+    },
   }
 }
 

@@ -16,6 +16,9 @@ export const metadata = {
   title: "Leonardo Torres — Tech Lead & Solutions Architect",
   description:
     "Tech Lead at Getnet (Santander) with 9+ years designing systems that cannot fail — air traffic control and payment rails. Cloud-native architecture on Kubernetes, AWS and GCP, and AI where it earns its keep.",
+  alternates: {
+    canonical: "/",
+  },
 };
 
 export default function Home() {

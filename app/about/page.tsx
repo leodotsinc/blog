@@ -7,6 +7,9 @@ import SocialIcon from "@/components/SocialIcon";
 export const metadata = {
   title: "About - Leo",
   description: "About me",
+  alternates: {
+    canonical: "/about",
+  },
 };
 
 export default function AboutPage() {

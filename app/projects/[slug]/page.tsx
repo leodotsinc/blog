@@ -29,6 +29,9 @@ export async function generateMetadata({ params }: PageProps) {
   return {
     title: `${project.title} - Leo`,
     description: project.description,
+    alternates: {
+      canonical: `/projects/${slug}`,
+    },
   };
 }
 

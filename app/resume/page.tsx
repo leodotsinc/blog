@@ -7,6 +7,9 @@ import MDXContent from "@/components/resume/MDXContent";
 export const metadata = {
   title: "Resume - Leo",
   description: "Professional resume and CV",
+  alternates: {
+    canonical: "/resume",
+  },
 };
 
 export default function ResumePage() {
