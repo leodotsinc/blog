@@ -33,7 +33,7 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 
 ## Contrato de releases — D2 aplicado
 
-A CI própria valida PRs e pushes em `main`. O Deploy seleciona o SHA atual com CI aprovada, calcula SemVer a partir da última release verificada, constrói uma única imagem, qualifica essa imagem isoladamente e publica seu digest. O rollout usa apenas esse digest, preserva o `.env`, confere readiness e a identidade de versão/commit/build e só então publica tag e manifesto no GitHub.
+A CI própria valida PRs e pushes em `main`. O Deploy seleciona o SHA atual com CI aprovada, calcula SemVer a partir da última release verificada, constrói uma única imagem, qualifica essa imagem isoladamente e publica seu digest. Não há gate de manutenção qualificada. As varreduras Trivy do runtime e do builder continuam obrigatórias como evidência, mas são consultivas: o job segue, publica `security.json` por sete dias e emite aviso quando há achados ou quando o scanner não consegue rodar (`SCANNER_OR_COVERAGE_UNAVAILABLE`). O rollout usa apenas esse digest, preserva o `.env`, confere readiness e a identidade de versão/commit/build e só então publica tag e manifesto no GitHub.
 
 `workflow_dispatch` começa com `prepare_only: true`: publica o artefato de build sem acessar produção. O helper dedicado e a credencial SSH restrita foram instalados no primeiro corte 0.1.0 em 14/09/2026; não repetir o bootstrap. Estado operacional e recuperação ficam no repo privado de infraestrutura. Não usar o deploy compartilhado antigo como fallback. A produção precisa fornecer `BLOG_DEPLOY_KEY` e `BLOG_SSH_KNOWN_HOSTS` como secrets e `VPS_IP`, `SSH_PORT`, `DEPLOY_USER` como variables. Nunca usar `ssh-keyscan` no rollout para confiar automaticamente numa host key.
 
