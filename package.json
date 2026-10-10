@@ -12,7 +12,8 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "next lint",
-    "test:lab": "node --test scripts/architecture-lab.test.mjs"
+    "test:lab": "node --test scripts/architecture-lab.test.mjs scripts/legal-pages.test.mjs",
+    "test:legal": "node --test scripts/legal-pages.test.mjs"
   },
   "dependencies": {
     "@emotion/is-prop-valid": "^1.4.0",
