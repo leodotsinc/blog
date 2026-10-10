@@ -21,81 +21,92 @@ export default function PrivacyPage() {
         <>
           <p>
             <strong>{legal.appName}</strong> is a personal-use app operated by{" "}
-            {legal.operator}. It reads email through the Gmail read-only scope (
-            <code>{legal.gmailScope}</code>) only for the owner&apos;s own
-            mailboxes, to classify message importance (triage of the
-            owner&apos;s own mail).
-          </p>
-          <p>
-            It does not sell or share data. Data stays on the owner&apos;s
-            private server. Third-party processing is limited to a
-            classification service chosen by the owner. No data from other
-            users is collected: the app is not offered to others.
-          </p>
-          <p>
-            To revoke access, go to{" "}
-            <a href={legal.revokeUrl}>myaccount.google.com/permissions</a>; the
-            owner will delete stored data on request. Contact:{" "}
+            {legal.operator}. Contact:{" "}
             <a href={`mailto:${legal.contactEmail}`}>{legal.contactEmail}</a>.
+            It uses the Gmail read-only scope (<code>{legal.gmailScope}</code>)
+            only for the owner&apos;s own mailboxes, to classify message
+            importance. It handles no other people&apos;s data.
           </p>
           <p>
-            The use of information received from Google APIs adheres to the{" "}
-            <a href={legal.googlePolicyUrl}>
-              Google API Services User Data Policy
-            </a>
-            , including the Limited Use requirements.
+            It does not sell data. Stored data stays on the owner&apos;s
+            private server. The only transfer off that server is to a
+            classification service the owner chose, and only to classify the
+            owner&apos;s own mail. That service may not use the data for
+            advertising or to develop, improve, or train generalized AI or
+            machine-learning models. No human reads this data except where
+            Google&apos;s Limited Use rules allow it (the owner&apos;s own
+            access, security, or a legal requirement).
+          </p>
+          <p>
+            Copies kept for classification remain until the owner deletes them.
+            To ask for deletion, email{" "}
+            <a href={`mailto:${legal.contactEmail}`}>{legal.contactEmail}</a>.
+            To revoke access, go to{" "}
+            <a href={legal.revokeUrl}>{legal.revokeUrl}</a>.
+          </p>
+          <p>
+            {legal.limitedUse.en.before}
+            <a href={legal.googlePolicyUrl}>{legal.limitedUse.en.linkText}</a>
+            {legal.limitedUse.en.after}
+          </p>
+          <p>
+            This policy covers the {legal.appName} app. This site also uses the
+            Umami analytics script served from {legal.analytics.host} to
+            measure visits to its pages; it is separate from the app and has no
+            access to Gmail data.
           </p>
         </>
       }
     >
       <p>
-        Esta política descreve como o aplicativo pessoal{" "}
-        <strong>{legal.appName}</strong> trata informações. O aplicativo é de
-        uso pessoal e é operado por {legal.operator}. Contato:{" "}
+        Esta política descreve o aplicativo pessoal{" "}
+        <strong>{legal.appName}</strong>, de uso pessoal, operado por{" "}
+        {legal.operator}. Contato:{" "}
         <a href={`mailto:${legal.contactEmail}`}>{legal.contactEmail}</a>.
       </p>
 
       <h2>O que o aplicativo acessa e para quê</h2>
       <p>
-        O aplicativo lê e-mails pelo escopo somente leitura do Gmail,{" "}
+        O aplicativo usa o escopo somente leitura do Gmail,{" "}
         <code>{legal.gmailScope}</code>, apenas nas caixas de entrada do próprio
-        proprietário. O objetivo é classificar a importância das mensagens, ou
-        seja, fazer a triagem do e-mail do próprio proprietário.
+        proprietário, para classificar a importância das mensagens. Ele não
+        trata dados de outras pessoas.
       </p>
 
-      <h2>Onde os dados ficam</h2>
-      <p>Os dados ficam no servidor privado do proprietário.</p>
-
-      <h2>Venda e compartilhamento</h2>
+      <h2>Onde os dados ficam e com quem são tratados</h2>
       <p>
-        O aplicativo não vende nem compartilha dados. O processamento por
-        terceiros se limita a um serviço de classificação escolhido pelo
-        proprietário.
+        O aplicativo não vende dados. Os dados armazenados ficam no servidor
+        privado do proprietário. A única transferência para fora desse servidor
+        é para um serviço de classificação escolhido pelo proprietário, e
+        somente para classificar o e-mail do próprio proprietário. Esse serviço
+        não pode usar os dados para publicidade nem para desenvolver, melhorar
+        ou treinar modelos generalizados de IA ou aprendizado de máquina.
+        Nenhuma pessoa lê esses dados, exceto nos casos permitidos pelas regras
+        de Uso Limitado do Google (acesso do próprio proprietário, segurança ou
+        exigência legal).
       </p>
 
-      <h2>Dados de outras pessoas</h2>
+      <h2>Por quanto tempo os dados ficam e como apagá-los</h2>
       <p>
-        O aplicativo não coleta dados de outros usuários: ele não é oferecido a
-        terceiros e serve apenas às caixas de entrada do proprietário.
-      </p>
-
-      <h2>Revogação de acesso e exclusão de dados</h2>
-      <p>
-        Para revogar o acesso, use{" "}
-        <a href={legal.revokeUrl}>myaccount.google.com/permissions</a>. O
-        proprietário apaga os dados armazenados mediante solicitação, pelo
-        e-mail <a href={`mailto:${legal.contactEmail}`}>{legal.contactEmail}</a>
-        .
+        As cópias guardadas para classificação permanecem até o proprietário
+        apagá-las. Para pedir a exclusão, escreva para{" "}
+        <a href={`mailto:${legal.contactEmail}`}>{legal.contactEmail}</a>. Para
+        revogar o acesso, use <a href={legal.revokeUrl}>{legal.revokeUrl}</a>.
       </p>
 
       <h2>Política de dados de usuário dos serviços de API do Google</h2>
       <p>
-        O uso das informações recebidas das APIs do Google segue a{" "}
-        <a href={legal.googlePolicyUrl}>
-          Política de Dados de Usuário dos Serviços de API do Google
-        </a>{" "}
-        (Google API Services User Data Policy), incluindo os requisitos de Uso
-        Limitado (Limited Use).
+        {legal.limitedUse.pt.before}
+        <a href={legal.googlePolicyUrl}>{legal.limitedUse.pt.linkText}</a>
+        {legal.limitedUse.pt.after}
+      </p>
+
+      <h2>Este site</h2>
+      <p>
+        Esta política cobre o aplicativo {legal.appName}. Este site também usa o
+        script de estatísticas Umami, servido de {legal.analytics.host}, para
+        medir as visitas às suas páginas; ele é separado do aplicativo e não
+        tem acesso aos dados do Gmail.
       </p>
 
       <h2>Termos</h2>

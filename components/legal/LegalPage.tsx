@@ -39,12 +39,12 @@ export default function LegalPage({
           <h2 className="text-lg font-semibold mb-2 text-foreground">
             {summaryTitle}
           </h2>
-          <div className="prose max-w-none text-muted-foreground [&_p]:mb-2 [&_p:last-child]:mb-0 [&_code]:break-all [&_strong]:text-foreground">
+          <div className="prose max-w-none text-muted-foreground [&_p]:mb-2 [&_p:last-child]:mb-0 [&_code]:break-all [&_a]:[overflow-wrap:anywhere] [&_strong]:text-foreground">
             {summary}
           </div>
         </aside>
 
-        <div lang="pt-BR" className="prose max-w-none [&_code]:break-all [&_strong]:text-foreground">
+        <div lang="pt-BR" className="prose max-w-none [&_code]:break-all [&_a]:[overflow-wrap:anywhere] [&_strong]:text-foreground">
           {children}
         </div>
       </article>
