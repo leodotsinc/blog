@@ -56,6 +56,14 @@ export default function Footer() {
               </li>
               <li>{` • `}</li>
               <li>
+                <Link href="/privacy">Privacy</Link>
+              </li>
+              <li>{` • `}</li>
+              <li>
+                <Link href="/terms">Terms</Link>
+              </li>
+              <li>{` • `}</li>
+              <li>
                 <SocialIcon
                   kind="githubFork"
                   href={siteMetadata.siteRepo}

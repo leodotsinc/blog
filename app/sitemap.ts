@@ -4,7 +4,7 @@ import { getBlogIndexPosts } from "@/lib/posts";
 
 const siteUrl = "https://leodots.com";
 
-const staticPaths = ["", "/about", "/blog", "/projects", "/resume"] as const;
+const staticPaths = ["", "/about", "/blog", "/projects", "/resume", "/privacy", "/terms"] as const;
 
 function isDraft(document: object) {
   return "draft" in document && (document as { draft?: boolean }).draft === true;
