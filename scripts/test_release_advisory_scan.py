@@ -90,7 +90,10 @@ class LiberalPipeline(unittest.TestCase):
         self.assertIn('python3 scripts/select-release.py', deploy)
         self.assertIn('python3 scripts/publish-release.py', deploy)
         self.assertIn('75bb057aaa633335b54c38f4729f96879264e070', deploy)
-        self.assertIn('5242d92c3bb190f207fd202d21b3df5338ad52e4', deploy)
+        self.assertNotIn('reconcile.yml@', deploy)
+        self.assertIn('needs: [gate, build, rollout]', deploy)
+        self.assertIn('name: ${{ needs.rollout.outputs.result_artifact }}', deploy)
+        self.assertIn('deployment result is not verified', deploy)
         self.assertLess(deploy.index('Select SemVer'), deploy.index('docker push'))
         self.assertLess(deploy.index('docker push'), deploy.index('Publish verified Blog release'))
 
