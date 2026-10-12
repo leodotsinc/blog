@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { test } from 'node:test';
 import { compile } from '@mdx-js/mdx';
 import remarkFrontmatter from 'remark-frontmatter';
@@ -47,4 +49,27 @@ test('qs enforces arrayLimit for combined bracket and comma input', () => {
   assert.deepEqual(qs.parse('page=2&filter[category]=writing'), {
     page: '2', filter: { category: 'writing' },
   });
+});
+
+test('YAML frontmatter keeps the parser API used by existing content', () => {
+  const matter = require('gray-matter');
+  const result = matter('---\ntitle: Security update\ntags:\n  - next\n  - images\n---\n# Existing content');
+  assert.deepEqual(result.data, { title: 'Security update', tags: ['next', 'images'] });
+  assert.equal(result.content, '# Existing content');
+});
+
+test('YAML CLI retains legacy argparse options with the compatible parser update', () => {
+  const cli = join(dirname(require.resolve('js-yaml/package.json')), 'bin', 'js-yaml.js');
+  for (const args of [[], ['--compact', '--trace'], ['-j']]) {
+    const result = spawnSync(process.execPath, [cli, ...args], {
+      input: 'title: Existing content\nitems: [one, two]\n', encoding: 'utf8', timeout: 5_000,
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), { title: 'Existing content', items: ['one', 'two'] });
+  }
+  const invalid = spawnSync(process.execPath, [cli, '--compact'], {
+    input: 'title: [unterminated', encoding: 'utf8', timeout: 5_000,
+  });
+  assert.notEqual(invalid.status, 0);
+  assert.match(invalid.stderr, /unexpected end|flow collection/i);
 });

@@ -1,12 +1,20 @@
-FROM node:26-alpine@sha256:dbaa92e5758cbbcf85d65d5403fdb530fe3442cbe8c6dbfb7ef23365450d5070 AS builder
+FROM node:26-alpine@sha256:143494b1da2945f061539253adc65e4f1569ddf07da2d384c022c791a9d90a4a AS base
+
+# Apply Alpine's current zlib security fix before either application stage.
+RUN apk add --no-cache 'zlib>=1.3.2-r1'
+
+FROM base AS builder
 
 WORKDIR /app
 COPY . .
 
-RUN npm install -g corepack && corepack enable && yarn install --frozen-lockfile
-RUN yarn build
+RUN npm install -g corepack@0.36.0 && corepack enable && yarn install --frozen-lockfile \
+    && yarn cache clean \
+    && npm cache clean --force
+RUN yarn build \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
-FROM node:26-alpine@sha256:dbaa92e5758cbbcf85d65d5403fdb530fe3442cbe8c6dbfb7ef23365450d5070 AS runner
+FROM base AS runner
 
 ARG APP_VERSION
 ARG APP_REVISION
@@ -26,7 +34,10 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/yarn.lock ./
 
-RUN npm install -g corepack && corepack enable && yarn install --production --frozen-lockfile
+RUN npm install -g corepack@0.36.0 && corepack enable && yarn install --production --frozen-lockfile \
+    && yarn cache clean \
+    && npm cache clean --force \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 # Compose runs as node; the image optimizer must be able to persist its cache.
 RUN mkdir -p .next/cache && chown -R node:node .next/cache
