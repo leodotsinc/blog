@@ -70,17 +70,20 @@ Falha exige diagnóstico antes de rerun; não usar skip de CI para publicar.
   checkpoints em artifact por execução/tentativa, inclusive em falha do gateway.
   A publicação consome `rollout.outputs.result_artifact`. Timeout/desconexão não
   comprovam rollback: conferir o runtime antes de repetir o manifesto original.
-- Após a publicação, o workflow compartilhado de reconciliação envia esse recibo
-  pela GitHub App `cloudbox-release-reconciler` e aguarda o PR/check/merge
-  allowlisted no `cloudbox-infra`. Falha nessa etapa não apaga a prova de produção:
-  corrigir a reconciliação sem reconstruir ou inventar outra identidade.
+- Após a publicação, o fechamento operacional confere o recibo protegido no host,
+  o histórico local `current`/`previous` e a identidade e saúde do runtime contra
+  o artefato original, conforme o contrato qualificado do `cloudbox-infra`.
+  O caller de reconciliação foi removido deste pipeline; não há espera por
+  PR/check/merge de registro na infraestrutura. O aceite do primeiro rollout
+  nesse fluxo permanece pendente até essas verificações. Divergência exige
+  diagnóstico sem reconstruir ou inventar outra identidade.
 - `/api/health` não chama Spotify; `/api/version` expõe apenas versão, commit e build, com no-store. A validação real incluiu health/version públicos, Spotify, hero em 1440/390 px, menu e navegação. O teste de repetição pela chave restrita preservou o container; isso não é uma execução de rollout em runner GitHub nem restore independente.
 - Next 16.3.3, Sharp 0.35.4 e libheif 1.23.2 foram qualificados na imagem; PNG/JPEG e `/_next/image` exercitados. A troca preservou hero, conteúdo e credenciais. O aviso de depreciação `THREE.Clock` já existia antes; o lint mantém a limitação acima.
 - `scripts/sync-spotify-env.sh` está aposentado e recusa antes de rede/escritas. Rotação de credenciais exige manutenção própria com lock, checkpoint e validação, sem versão fictícia do app; o helper de refresh token foi preservado.
 
 ## Release tier
 
-The blog releases on the liberal tier: green CI on `main`, then SemVer, one image, isolated qualification, SSH rollout, publish, and reconcile. There is no maintenance qualification gate and no `workflow_call` maintenance path. Do not restore `maintenance.yml`, `maintenance-guard.py`, source review, `.github/maintenance.json`, or the Yarn admission modules.
+The blog releases on the liberal tier: green CI on `main`, then SemVer, one image, isolated qualification, SSH rollout, and publish. Operational closure verifies the protected host receipt, local `current`/`previous` history, and runtime identity and health against the original artifact; the first rollout under this flow still requires that acceptance. There is no maintenance qualification gate and no `workflow_call` maintenance path. Do not restore `maintenance.yml`, `maintenance-guard.py`, source review, `.github/maintenance.json`, or the Yarn admission modules.
 
 - Build, lab tests, release-metadata tests, and isolated image qualification stay required. `workflow_dispatch` still defaults to `prepare_only: true` and does not touch production.
 - Runtime and builder scans stay on the pinned shared action `leodotsinc/.github/actions/maintenance-scan`. Do not edit that action; other apps depend on its fail-closed behavior. In this repository the steps use `continue-on-error`. `scripts/report-advisory-scan.py` writes a job summary and a `::warning` when `security.json` is missing, unreadable, not `passed`, or contains findings, including `SCANNER_OR_COVERAGE_UNAVAILABLE` from a stale Trivy database. `security.json` is still uploaded for seven days. A stale database or a finding does not fail CI or block deploy.
