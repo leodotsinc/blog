@@ -7,10 +7,9 @@ yarn lint
 node --test scripts/git-hooks.test.mjs
 yarn test:lab
 
-if [ -f tsconfig.json ]; then
-  yarn typecheck
-fi
+yarn typecheck
 
 if [ "${FULL:-0}" = 1 ]; then
   yarn build
+  node --test scripts/legal-pages-built.test.mjs
 fi

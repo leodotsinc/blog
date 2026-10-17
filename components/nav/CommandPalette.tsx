@@ -81,12 +81,15 @@ export default function CommandPalette({
       .map((entry) => entry.item);
   }, [items, query]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- A changed query resets keyboard selection to the first result.
   useEffect(() => setActive(0), [query]);
 
   useEffect(() => {
     if (open) {
+      /* eslint-disable react-hooks/set-state-in-effect -- Opening the palette resets search and selection before restoring input focus. */
       setQuery("");
       setActive(0);
+      /* eslint-enable react-hooks/set-state-in-effect */
       /* let the entrance animation start before stealing focus */
       const id = setTimeout(() => inputRef.current?.focus(), 60);
       document.documentElement.classList.add("home-locked");

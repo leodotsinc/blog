@@ -28,13 +28,16 @@ Use Node 24+ and Yarn. `yarn lint` runs ESLint with Next's native flat config.
 The typecheck generates Contentlayer and Next route types before running TypeScript.
 
 ```bash
-./scripts/check-all.sh          # lint, test:lab, typecheck; stops on failure
-FULL=1 ./scripts/check-all.sh   # also run the production build
+./scripts/check-all.sh          # lint, hook tests, test:lab, typecheck; stops on failure
+FULL=1 ./scripts/check-all.sh   # also build, then assert the generated legal HTML
 git config core.hooksPath .githooks
 ```
 
 Enable the hooks once per checkout: pre-push runs these checks, and pre-commit
-requires `user.email` to use your GitHub `@users.noreply.github.com` address.
+requires `user.email` to use `username@users.noreply.github.com` or
+`digits+username@users.noreply.github.com`. The username must start and end with
+an ASCII letter or digit and contain only letters, digits, or hyphens (a single
+letter or digit is also valid).
 
 ## Learn More
 

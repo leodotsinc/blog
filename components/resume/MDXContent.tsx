@@ -22,6 +22,7 @@ export default function MDXContent({ code }: MDXContentProps) {
   const MDXComponent = useMDXComponent(code)
   return (
     <div className="prose max-w-none">
+      {/* eslint-disable-next-line react-hooks/static-components -- Contentlayer useMDXComponent supplies the component compiled from MDX code. */}
       <MDXComponent components={components} />
     </div>
   )

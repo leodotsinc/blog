@@ -41,8 +41,10 @@ export default function SiteHeader({ commands }: { commands: CommandItem[] }) {
 
   /* close everything when the route changes */
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- Route changes close both overlays while preserving their focus lifecycle. */
     setMenuOpen(false);
     setPaletteOpen(false);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [pathname]);
 
   /* cmd/ctrl + k opens search anywhere */
