@@ -29,8 +29,8 @@ function Monogram({ theme, active, reduced, pointer, onReady, onUnavailable }: P
   const elapsed = useRef(0);
   const prepared = useRef(false);
   const { gl, scene, camera, invalidate } = useThree();
-  const geometry = useMemo(createMonogramGeometry, []);
-  const motes = useMemo(createMotes, []);
+  const geometry = useMemo(() => createMonogramGeometry(), []);
+  const motes = useMemo(() => createMotes(), []);
   const uniforms = useMemo(() => ({
     uTime: { value: 0 }, uPixelRatio: { value: 1 }, uOpening: { value: 0 },
     uColor: { value: new THREE.Color("#b6dfff") },
@@ -130,7 +130,8 @@ function Monogram({ theme, active, reduced, pointer, onReady, onUnavailable }: P
 
 export default function HeroCanvas(props: Props) {
   const [prepared, setPrepared] = useState(false);
-  const onReady = useCallback(() => { setPrepared(true); props.onReady(); }, [props.onReady]);
+  const { onReady: notifyReady } = props;
+  const onReady = useCallback(() => { setPrepared(true); notifyReady(); }, [notifyReady]);
   return (
     <Canvas
       frameloop={prepared ? "demand" : "never"}

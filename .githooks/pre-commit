@@ -1,0 +1,17 @@
+#!/bin/sh
+set -eu
+
+email=$(git config --get user.email || true)
+
+case "$email" in
+  *@users.noreply.github.com)
+    username=${email%@users.noreply.github.com}
+    case "$username" in
+      ''|*[!a-zA-Z0-9+-]*) ;;
+      *) exit 0 ;;
+    esac
+    ;;
+esac
+
+printf '%s\n' 'Commit blocked: configure user.email with your GitHub noreply address (users.noreply.github.com).' >&2
+exit 1

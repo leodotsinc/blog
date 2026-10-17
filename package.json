@@ -11,7 +11,8 @@
     "dev": "contentlayer2 build && next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "contentlayer2 build && next typegen && tsc --noEmit",
     "test:lab": "node --test scripts/architecture-lab.test.mjs scripts/legal-pages.test.mjs",
     "test:legal": "node --test scripts/legal-pages.test.mjs"
   },
