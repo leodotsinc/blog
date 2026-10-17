@@ -19,6 +19,7 @@ export default function TableOfContents() {
       text: elem.textContent || '',
       level: Number(elem.tagName.charAt(1)),
     }))
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Headings are discovered from the committed MDX DOM after mount.
     setHeadings(headingData)
 
     const observer = new IntersectionObserver(

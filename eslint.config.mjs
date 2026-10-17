@@ -1,16 +1,21 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTypescript from "eslint-config-next/typescript";
 
 const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  ...nextVitals.map((config) =>
+    config.name === "next"
+      ? {
+          ...config,
+          // The pinned brace-expansion 5 API is incompatible with ESLint's
+          // minimatch 3. Separate globs preserve Next's file coverage without braces.
+          files: ["js", "jsx", "mjs", "ts", "tsx", "mts", "cts"].map(
+            (extension) => `**/*.${extension}`,
+          ),
+        }
+      : config,
+  ),
+  ...nextTypescript,
+  { ignores: [".contentlayer/**", "coverage/**"] },
 ];
 
 export default eslintConfig;

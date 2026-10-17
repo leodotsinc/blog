@@ -29,8 +29,8 @@ function Monogram({ theme, active, reduced, pointer, onReady, onUnavailable }: P
   const elapsed = useRef(0);
   const prepared = useRef(false);
   const { gl, scene, camera, invalidate } = useThree();
-  const geometry = useMemo(createMonogramGeometry, []);
-  const motes = useMemo(createMotes, []);
+  const geometry = useMemo(() => createMonogramGeometry(), []);
+  const motes = useMemo(() => createMotes(), []);
   const uniforms = useMemo(() => ({
     uTime: { value: 0 }, uPixelRatio: { value: 1 }, uOpening: { value: 0 },
     uColor: { value: new THREE.Color("#b6dfff") },
@@ -52,6 +52,7 @@ function Monogram({ theme, active, reduced, pointer, onReady, onUnavailable }: P
   useEffect(() => {
     let cancelled = false;
     const studio = createStudio(gl);
+    // eslint-disable-next-line react-hooks/immutability -- R3F owns a mutable Three.js scene whose environment is installed here.
     scene.environment = studio.texture;
     // Compile while the SVG is visible; the first visible frame has its materials ready.
     gl.compileAsync(scene, camera).then(() => {
@@ -88,9 +89,11 @@ function Monogram({ theme, active, reduced, pointer, onReady, onUnavailable }: P
     const opening = reduced ? 0 : smooth((cycle - 4.5) / 3) * (1 - smooth((cycle - 11.2) / 3.8));
     const arrival = reduced ? 1 : smooth(t / 2.4);
     const spread = Math.max(opening, (1 - arrival) * 0.65);
+    /* eslint-disable react-hooks/immutability -- Shared Three.js shader uniforms must be updated in place each frame. */
     uniforms.uTime.value = t;
     uniforms.uOpening.value = spread;
     uniforms.uPixelRatio.value = state.viewport.dpr;
+    /* eslint-enable react-hooks/immutability */
 
     if (root.current) {
       root.current.rotation.y = THREE.MathUtils.damp(root.current.rotation.y, -0.2 + Math.sin(t * 0.22) * 0.16 + opening * 0.22 + (reduced ? 0 : pointer.current.x * 0.1), 3, dt);
@@ -130,7 +133,8 @@ function Monogram({ theme, active, reduced, pointer, onReady, onUnavailable }: P
 
 export default function HeroCanvas(props: Props) {
   const [prepared, setPrepared] = useState(false);
-  const onReady = useCallback(() => { setPrepared(true); props.onReady(); }, [props.onReady]);
+  const { onReady: notifyReady } = props;
+  const onReady = useCallback(() => { setPrepared(true); notifyReady(); }, [notifyReady]);
   return (
     <Canvas
       frameloop={prepared ? "demand" : "never"}

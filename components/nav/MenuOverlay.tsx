@@ -33,6 +33,7 @@ function LocalClock({ active }: { active: boolean }) {
     });
     const format = () => formatter.format(new Date());
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Initialize the live clock on activation while preserving the server placeholder.
     setTime(format());
     const id = setInterval(() => setTime(format()), 1000);
     return () => clearInterval(id);

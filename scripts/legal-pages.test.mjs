@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { legal } from '../data/legal.ts';
 
@@ -67,14 +67,4 @@ test('sitemap and footer include both pages', () => {
   assert.match(sitemapSource, /"\/terms"/);
   assert.match(footerSource, /href="\/privacy"/);
   assert.match(footerSource, /href="\/terms"/);
-});
-
-test('built HTML, when present, carries canonical and the Limited Use sentence', (t) => {
-  const built = new URL('../.next/server/app/privacy.html', import.meta.url);
-  if (!existsSync(built)) return t.skip('no production build present');
-  const html = readFileSync(built, 'utf8');
-  assert.match(html, /<link rel="canonical" href="https:\/\/leodots\.com\/privacy"/);
-  assert.ok(!/<meta name="robots"[^>]*noindex/.test(html));
-  const text = html.replace(/<[^>]+>/g, '').replaceAll('&#x27;', "'").replaceAll('&amp;', '&');
-  assert.ok(text.includes(REQUIRED_EN));
 });

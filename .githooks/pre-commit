@@ -1,0 +1,29 @@
+#!/bin/sh
+set -eu
+
+# Read this checkout's identity without inherited Git settings.
+unset $(git rev-parse --local-env-vars)
+
+email=$(git config --get user.email || true)
+
+case "$email" in
+  *@users.noreply.github.com)
+    username=${email%@users.noreply.github.com}
+    case "$username" in
+      *+*)
+        id=${username%%+*}
+        username=${username#*+}
+        case "$id" in
+          ''|*[!0-9]*) username='' ;;
+        esac
+        ;;
+    esac
+    case "$username" in
+      ''|*[!a-zA-Z0-9-]*|-*|*-) ;;
+      *) exit 0 ;;
+    esac
+    ;;
+esac
+
+printf '%s\n' 'Commit blocked: configure user.email as username@users.noreply.github.com or digits+username@users.noreply.github.com.' >&2
+exit 1

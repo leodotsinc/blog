@@ -22,6 +22,23 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Local checks
+
+Use Node 24+ and Yarn. `yarn lint` runs ESLint with Next's native flat config.
+The typecheck generates Contentlayer and Next route types before running TypeScript.
+
+```bash
+./scripts/check-all.sh          # lint, hook tests, test:lab, typecheck; stops on failure
+FULL=1 ./scripts/check-all.sh   # also build, then assert the generated legal HTML
+git config core.hooksPath .githooks
+```
+
+Enable the hooks once per checkout: pre-push runs these checks, and pre-commit
+requires `user.email` to use `username@users.noreply.github.com` or
+`digits+username@users.noreply.github.com`. The username must start and end with
+an ASCII letter or digit and contain only letters, digits, or hyphens (a single
+letter or digit is also valid).
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
@@ -41,6 +58,6 @@ A CI própria valida PRs e pushes em `main`. O Deploy seleciona o SHA atual com 
 
 O legado `scripts/sync-spotify-env.sh` foi desativado e sempre recusa a sincronização; a rotação de credenciais de produção aguarda uma rotina de manutenção controlada no `cloudbox-infra`, enquanto `scripts/spotify-refresh-token.mjs` continua disponível para obter o refresh token.
 
-Validação local do contrato: `node --test scripts/release-metadata.test.mjs` e `python3 -m unittest discover -s scripts -p 'test_release*.py'`. O build continua `yarn build`; o lint legado mantém a limitação registrada no AGENTS.
+Validação local do contrato: `node --test scripts/release-metadata.test.mjs` e `python3 -m unittest discover -s scripts -p 'test_release*.py'`. O build continua `yarn build`; o lint roda com `yarn lint`.
 
 Primeiro corte publicado: [v0.1.0](https://github.com/leodotsinc/blog/releases/tag/v0.1.0), com health/version, Spotify e verificação visual após o deploy. A repetição pela chave restrita não recriou o container. Restore independente e uma futura atualização completa pelo runner são provas separadas.

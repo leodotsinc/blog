@@ -22,6 +22,7 @@ export default function CustomCursor() {
     const coarseOk = fine.matches && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (!coarseOk) return;
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Read pointer capabilities after mount to preserve hydration.
     setEnabled(true);
     document.documentElement.classList.add("has-custom-cursor");
 
