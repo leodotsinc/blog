@@ -1,4 +1,7 @@
 #!/bin/sh
 set -eu
 
+# Keep checks that create temporary repositories isolated from this repository.
+unset $(git rev-parse --local-env-vars)
+
 exec "$(dirname "$0")/../scripts/check-all.sh"

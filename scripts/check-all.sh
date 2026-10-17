@@ -4,6 +4,7 @@ set -eu
 cd "$(dirname "$0")/.."
 
 yarn lint
+node --test scripts/git-hooks.test.mjs
 yarn test:lab
 
 if [ -f tsconfig.json ]; then

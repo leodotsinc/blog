@@ -1,6 +1,9 @@
 #!/bin/sh
 set -eu
 
+# Read this checkout's identity without inherited Git settings.
+unset $(git rev-parse --local-env-vars)
+
 email=$(git config --get user.email || true)
 
 case "$email" in
