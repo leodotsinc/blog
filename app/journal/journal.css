@@ -15,13 +15,6 @@ html:has(.jr-root) {
   --jr-wash: rgb(17 17 17 / 0.045);
   --jr-img-filter: grayscale(1) contrast(1.04);
 
-  /* the site chrome (header pill, footer) follows the paper */
-  --background: var(--jr-paper);
-  --foreground: var(--jr-ink);
-  --card: rgb(255 255 255 / 0.55);
-  --border: rgb(17 17 17 / 0.16);
-  --muted-foreground: var(--jr-muted);
-  --ring: var(--jr-ink);
   background: var(--jr-paper);
 }
 
@@ -35,12 +28,9 @@ html.dark:has(.jr-root) {
   --jr-hair-strong: rgb(236 236 235 / 0.5);
   --jr-wash: rgb(255 255 255 / 0.05);
   --jr-img-filter: grayscale(1) contrast(1.06) brightness(0.86);
-
-  --card: rgb(30 30 30 / 0.6);
-  --border: rgb(236 236 235 / 0.16);
 }
 
-/* paper grain, tiled on the body so it covers header, page and footer evenly */
+/* Paper grain stays on the body across the entire journal. */
 html:has(.jr-root) body {
   background-color: var(--jr-paper);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
@@ -56,7 +46,7 @@ html:has(.jr-root) ::selection {
 
 .jr-root {
   --jr-ease: cubic-bezier(0.16, 1, 0.3, 1);
-  --jr-sticky-top: 76px;
+  --jr-sticky-top: env(safe-area-inset-top, 0px);
   --jr-nav-h: 46px;
   --jr-anchor: calc(var(--jr-sticky-top) + var(--jr-nav-h) + 20px);
   --jr-display: var(--jr-font-display), "Playfair Display", Georgia, serif;
@@ -73,6 +63,7 @@ html:has(.jr-root) ::selection {
   font-variant-ligatures: common-ligatures;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  flex-grow: 1;
   padding-bottom: 24px;
 }
 
@@ -84,6 +75,42 @@ html:has(.jr-root) ::selection {
 
 .jr-root a {
   color: inherit;
+}
+
+.jr-app-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  padding-block: 24px;
+  font: 500 12px/1.5 var(--jr-mono);
+  text-underline-offset: 4px;
+}
+
+.jr-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0 20px;
+  padding-top: 8px;
+  border-bottom: 1px solid var(--jr-ink);
+  font: 500 11px/1.4 var(--jr-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.jr-bar a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  text-decoration: none;
+  text-underline-offset: 5px;
+}
+
+.jr-bar a:is([aria-current="page"], :hover, :focus-visible) {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
 }
 
 .jr-root :focus-visible {
@@ -403,7 +430,7 @@ html:has(.jr-root) ::selection {
   background: var(--jr-paper);
   border-block: 1px solid var(--jr-ink);
 }
-/* when stuck, fill the strip above it so text never shows behind the header */
+/* Fill the safe-area inset above the sticky section menu. */
 .jr-sections::before {
   content: "";
   position: absolute;

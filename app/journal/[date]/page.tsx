@@ -9,7 +9,8 @@ interface PageProps {
 }
 
 export const dynamic = "force-static";
-export const dynamicParams = false;
+// Unknown dates render the journal's own not-found boundary, not the global 404.
+export const dynamicParams = true;
 
 export function generateStaticParams() {
   return getEditions().map((edition) => ({ date: edition.date }));

@@ -29,7 +29,7 @@ export default function SectionNav({ items, progressTarget }: { items: Item[]; p
         const first = items.find((item) => visible.get(item.id));
         if (first) setActive(first.id);
       },
-      { rootMargin: "-150px 0px -55% 0px" },
+      { rootMargin: "-74px 0px -55% 0px" },
     );
     for (const item of items) {
       const section = document.getElementById(item.id);

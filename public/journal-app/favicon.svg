@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="504" height="406" viewBox="373 409 504 406" fill="#111111">
+  <!-- Newspaper page and rolled lower edge; measured from leo-logo-mockup.png. -->
+  <path fill-rule="evenodd" d="M490 409.8 847 409.1C864 409.1 876.8 421.7 876.8 440V758.5C876.8 793.5 857.5 813.8 821 813.8L449 815C432 815 419 811.6 410.5 804.1C436 807.5 449.8 787.9 449.8 758V450C449.8 426 464 409.8 490 409.8ZM490 433.5C480 433.5 474.85 440 474.85 451V758C474.85 767 474 774 471.8 781.8L831 781C844 781 851.2 775 851.2 758V442C851.2 436 848.8 433 843 433Z"/>
+  <!-- Folded left leaf, separate from the main page. -->
+  <path d="M430.8 470H404C387 470 373.1 481.5 373.1 500V728C373.1 762 386 787 408.8 787C422 787 430.8 777 430.8 761Z"/>
+  <rect x="505.7" y="475" width="139.2" height="126.8" rx="8"/>
+  <rect x="672.1" y="477.7" width="148" height="29.1" rx="7"/>
+  <rect x="672.1" y="532.7" width="148" height="19.5" rx="8"/>
+  <rect x="672.1" y="579.7" width="148" height="19.5" rx="8"/>
+  <!-- Long lines follow the mockup's very slight upward slope. -->
+  <rect x="505.7" y="630" width="314.5" height="19.8" rx="8" transform="rotate(-0.233 505.7 640)"/>
+  <rect x="505.7" y="679.7" width="314.5" height="19.5" rx="8" transform="rotate(-0.233 505.7 689.5)"/>
+  <rect x="505.7" y="728.8" width="314.5" height="19.8" rx="8" transform="rotate(-0.3 505.7 738.7)"/>
+</svg>

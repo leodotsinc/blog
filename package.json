@@ -13,8 +13,9 @@
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "contentlayer2 build && next typegen && tsc --noEmit",
-    "test:lab": "node --test scripts/architecture-lab.test.mjs scripts/legal-pages.test.mjs",
-    "test:legal": "node --test scripts/legal-pages.test.mjs"
+    "test:lab": "node --test scripts/architecture-lab.test.mjs scripts/legal-pages.test.mjs scripts/journal-pwa.test.mjs",
+    "test:legal": "node --test scripts/legal-pages.test.mjs",
+    "journal:icons": "node scripts/journal-icons.mjs"
   },
   "dependencies": {
     "@emotion/is-prop-valid": "^1.4.0",
@@ -58,7 +59,8 @@
     "unified": "^11.0.5",
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.0",
-    "hast-util-to-jsx-runtime": "^2.0.0"
+    "hast-util-to-jsx-runtime": "^2.0.0",
+    "sharp": "0.35.5"
   },
   "resolutions": {
     "@hono/node-server": "2.0.10",
