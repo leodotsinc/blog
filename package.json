@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "contentlayer2 build && next dev",
-    "build": "next build --webpack",
+    "build": "node scripts/journal-validate.mjs && next build --webpack",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "contentlayer2 build && next typegen && tsc --noEmit",

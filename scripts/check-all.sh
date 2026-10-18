@@ -5,6 +5,8 @@ cd "$(dirname "$0")/.."
 
 yarn lint
 node --test scripts/git-hooks.test.mjs
+node --test scripts/journal-validate.test.mjs scripts/journal-guard.test.mjs
+node scripts/journal-validate.mjs
 yarn test:lab
 
 yarn typecheck
