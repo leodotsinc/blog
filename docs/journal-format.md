@@ -157,17 +157,20 @@ An illustration accompanies this synthetic chip report.
 
 ## Rendering and reading time
 
-The following routes are **planned**: `app/journal` currently contains font assets
-but no page or RSS route handlers. Existing rendering components establish these
-destinations and presentation; a link in a component is not a live route.
+Every route is statically generated at build time; publishing an edition means
+committing the files and rebuilding.
 
 | Destination | Presentation |
 | --- | --- |
-| `/journal` (planned) | Latest edition cover: description, ordered highlights (first is lead), remaining stories grouped Brasil → Mundo → Economia → Tecnologia, edition sources, recent editions. Highlighted stories are cross-linked from their sections, not duplicated. |
-| `/journal/arquivo` (planned) | Archive list/calendar; edition date, number, title, description, highlighted story titles/sections, links to editions. |
-| `/journal/YYYY-MM-DD` (planned) | Permanent edition, same stories and sections, with previous/next edition navigation. |
-| `#<story-id>` (planned on edition pages) | Story anchor; headline, reading time, optional lead image/credit, Markdown body, optional Contexto aside, source links and update badge. Inline images become figures with optional captions. |
-| `/journal/rss.xml` (planned) | RSS feed; item contents are not implemented yet. |
+| `/journal` | Latest edition cover (canonical: its `/journal/YYYY-MM-DD` page): description, ordered highlights (first is the lead), remaining stories grouped Brasil → Mundo → Economia → Tecnologia, edition sources, recent editions. Highlighted stories are cross-linked from their sections, not duplicated. |
+| `/journal/arquivo` | Archive list and weekday calendar per month; edition date, number, title, description, highlighted story titles/sections. |
+| `/journal/YYYY-MM-DD` | Permanent edition with previous/next navigation and a generated OG image at `/journal/YYYY-MM-DD/og`. |
+| `#destaques`, `#brasil`, `#mundo`, `#economia`, `#tecnologia` | Section anchors used by the sticky section menu. |
+| `#<story-id>` | Story anchor: headline, reading time, optional lead image/credit, Markdown body, optional Contexto aside, source credit line and update badge. Inline images become figures with the Markdown title as caption. |
+| `/journal/rss.xml` | RSS 2.0: one item per edition with its description and highlight links. |
+
+Images are shown in greyscale with a light halftone screen, so colour is never
+needed to read them; still write alt text that describes the content.
 
 Reading time is computed at build time; do not add a frontmatter field for it.
 Story words count the story title plus extracted main/context Markdown text;
