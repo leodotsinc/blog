@@ -15,6 +15,7 @@ export function buildCommandIndex(): CommandItem[] {
       href: link.href,
       group: "Page",
     }));
+  pages.push({ title: "Leo’s Journal", href: "/journal", group: "Page", hint: "Resumo diário de notícias" });
 
   const posts: CommandItem[] = allPosts
     .slice()
