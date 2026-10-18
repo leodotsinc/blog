@@ -1281,9 +1281,114 @@ html[data-jr-size="lg"] .jr-fontsize__option[data-size="lg"] {
   }
 }
 
-/* headlines-only reading mode */
-.jr-edition[data-reading="headlines"] :is(.jr-body, .jr-context, .jr-figure, .jr-credit, .jr-story__meta) {
-  display: none;
+/* Story content wrapper: layout-neutral in the full reading mode. */
+.jr-story__more,
+.jr-story__more-inner {
+  display: contents;
+}
+
+/* headlines-only reading mode: each headline is a disclosure for its story,
+   which opens in place below it (grid rows 0fr → 1fr). */
+.jr-edition[data-reading="headlines"] .jr-story__more {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.34s var(--jr-ease);
+}
+/* The side/bottom padding keeps the context shadow and focus rings inside the
+   clip; the negative margins cancel it, so the column width is unchanged. */
+.jr-edition[data-reading="headlines"] .jr-story__more-inner {
+  display: block;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 6px 6px;
+  margin: 0 -6px -6px;
+  visibility: hidden;
+  opacity: 0;
+  transition:
+    opacity 0.2s linear,
+    visibility 0s linear 0.34s;
+}
+.jr-edition[data-reading="headlines"] .jr-story:has(> .jr-headline [aria-expanded="true"]) .jr-story__more {
+  grid-template-rows: 1fr;
+}
+.jr-edition[data-reading="headlines"]
+  .jr-story:has(> .jr-headline [aria-expanded="true"])
+  .jr-story__more-inner {
+  visibility: visible;
+  opacity: 1;
+  transition:
+    opacity 0.3s linear 0.06s,
+    visibility 0s;
+}
+
+.jr-headline__toggle {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  word-spacing: inherit;
+  text-align: start;
+  text-transform: inherit;
+  text-wrap: inherit;
+  hanging-punctuation: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.jr-headline__end {
+  white-space: nowrap;
+}
+/* +/− in a hairline circle; the vertical bar folds away when open. */
+.jr-headline__marker {
+  --jr-marker: calc(16px * var(--jr-fs));
+  position: relative;
+  display: inline-block;
+  width: var(--jr-marker);
+  height: var(--jr-marker);
+  margin-left: 0.4em;
+  vertical-align: 0.08em;
+  border: 1px solid var(--jr-hair-strong);
+  border-radius: 50%;
+  transition:
+    border-color 0.2s linear,
+    background-color 0.2s linear;
+}
+.jr-story--lead .jr-headline__marker {
+  --jr-marker: calc(22px * var(--jr-fs));
+  vertical-align: 0.14em;
+}
+.jr-headline__marker::before,
+.jr-headline__marker::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 46%;
+  height: 1.5px;
+  background: var(--jr-ink);
+  transform: translate(-50%, -50%);
+  transition: transform 0.3s var(--jr-ease);
+}
+.jr-headline__marker::after {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+.jr-headline__toggle[aria-expanded="true"] .jr-headline__marker::after {
+  transform: translate(-50%, -50%) rotate(90deg) scaleX(0);
+}
+.jr-headline__toggle:focus-visible {
+  outline-offset: 4px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .jr-headline__toggle:hover .jr-headline__marker {
+    border-color: var(--jr-ink);
+    background-color: var(--jr-wash);
+  }
 }
 /* a scanning mode: show every block at once */
 .jr-edition[data-reading="headlines"] [data-reveal] {
