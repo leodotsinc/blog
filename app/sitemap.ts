@@ -1,10 +1,10 @@
 import type { MetadataRoute } from "next";
-import { allProjects } from "contentlayer/generated";
+import { allJournalEditions, allProjects } from "contentlayer/generated";
 import { getBlogIndexPosts } from "@/lib/posts";
 
 const siteUrl = "https://leodots.com";
 
-const staticPaths = ["", "/about", "/blog", "/projects", "/resume", "/privacy", "/terms"] as const;
+const staticPaths = ["", "/about", "/blog", "/projects", "/resume", "/privacy", "/terms", "/journal", "/journal/arquivo"] as const;
 
 function isDraft(document: object) {
   return "draft" in document && (document as { draft?: boolean }).draft === true;
@@ -32,5 +32,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: new Date(project.date),
     }));
 
-  return [...staticPages, ...posts, ...projects];
+  const journal: MetadataRoute.Sitemap = allJournalEditions.map((edition) => ({
+    url: `${siteUrl}/journal/${edition.slug}`,
+    lastModified: new Date(edition.date),
+  }));
+
+  return [...staticPages, ...posts, ...projects, ...journal];
 }

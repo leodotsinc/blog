@@ -1,4 +1,4 @@
-import { defineDocumentType, makeSource } from "contentlayer2/source-files";
+import { defineDocumentType, defineNestedType, makeSource } from "contentlayer2/source-files";
 import rehypePrettyCode from "rehype-pretty-code";
 import rehypeSlug from "rehype-slug";
 
@@ -66,9 +66,72 @@ export const Post = defineDocumentType(() => ({
   },
 }));
 
+// Leo's Journal: plain Markdown written by a bot. Rendering and validation live
+// in lib/journal/core.mjs (scripts/journal-validate.mjs runs before the build);
+// these fields give the generated types. Contentlayer's default Markdown
+// pipeline drops raw HTML, and pages never render `body.html`.
+const JournalSource = defineNestedType(() => ({
+  name: "JournalSource",
+  fields: {
+    name: { type: "string", required: true },
+    url: { type: "string", required: true },
+  },
+}));
+
+const JournalStorySource = defineNestedType(() => ({
+  name: "JournalStorySource",
+  fields: {
+    kind: { type: "enum", options: ["the-news", "filipe-deschamps", "pesquisa-propria"], required: true },
+    url: { type: "string", required: true },
+    label: { type: "string", required: false },
+  },
+}));
+
+const JournalImage = defineNestedType(() => ({
+  name: "JournalImage",
+  fields: {
+    src: { type: "string", required: true },
+    alt: { type: "string", required: true },
+    credit: { type: "string", required: false },
+  },
+}));
+
+const JournalStory = defineNestedType(() => ({
+  name: "JournalStory",
+  fields: {
+    id: { type: "string", required: true },
+    section: { type: "enum", options: ["brasil", "mundo", "economia", "tecnologia"], required: true },
+    title: { type: "string", required: true },
+    sources: { type: "list", of: JournalStorySource, required: true },
+    update_of: { type: "date", required: false },
+    image: { type: "nested", of: JournalImage, required: false },
+  },
+}));
+
+export const JournalEdition = defineDocumentType(() => ({
+  name: "JournalEdition",
+  filePathPattern: "journal/*.md",
+  contentType: "markdown",
+  fields: {
+    title: { type: "string", required: true },
+    date: { type: "date", required: true },
+    edition: { type: "number", required: true },
+    description: { type: "string", required: true },
+    highlights: { type: "list", of: { type: "string" }, required: true },
+    sources: { type: "list", of: JournalSource, required: true },
+    stories: { type: "list", of: JournalStory, required: true },
+  },
+  computedFields: {
+    slug: {
+      type: "string",
+      resolve: (doc) => doc._raw.flattenedPath.replace("journal/", ""),
+    },
+  },
+}));
+
 export default makeSource({
   contentDirPath: "data",
-  documentTypes: [Resume, Project, Post],
+  documentTypes: [Resume, Project, Post, JournalEdition],
   mdx: {
     rehypePlugins: [
       rehypeSlug,

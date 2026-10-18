@@ -8,6 +8,11 @@ ao deploy automático, portanto publicar somente o lote final revisado. A
 concorrência cancela apenas CI anterior da mesma PR, nunca `main` ou deploy.
 Falha exige diagnóstico antes de rerun; não usar skip de CI para publicar.
 
+## Linear e Journal
+
+- Toda PR referencia seu card do Linear: o ID entra no nome da branch (por exemplo, `feat/leo-12-journal`) e a descrição da PR inclui `Fixes LEO-X`.
+- As edições do Journal ficam em `data/journal/` + `public/journal/`; o formato está em `docs/journal-format.md`. A publicação diária altera somente esses caminhos, conforme `scripts/journal-guard.sh`.
+
 ## Hero e desempenho
 
 - Hero e métricas usam fluxo vertical; preservar o nome inteiro e métricas legíveis de 320 px a desktop.
