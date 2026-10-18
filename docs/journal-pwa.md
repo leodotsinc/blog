@@ -147,6 +147,18 @@ Reading text multiplies its size by `--jr-fs` (0.9 / 1 / 1.15), a registered
 menu keep their size. Section titles at A+ grow only while they still fit their
 desktop rail (`20cqi`), never below the default size.
 
+## Theme toggle (LEO-21)
+
+Since the Journal has no blog header, its bar ends with its own light/dark
+button right after the size control. It uses the blog's mechanism through
+`useThemeWave` (shared with `ThemeSwitcher`): the same next-themes `theme` key,
+so the choice is shared with the blog, and the same circular wave from the
+button's center. Only the inner glyph carries `.theme-toggle`, so the icon rotates
+in while the bordered box is revealed with the page. Both glyphs are rendered and
+`html.dark` picks one, so the icon is right before hydration. Below 480px the bar
+tightens its spacing so the whole bar stays on one line at 390px; at 320px the
+right group wraps below, aligned right.
+
 ## Validation
 
 `node --test scripts/journal-pwa.test.mjs` checks icon PNG headers, manifest fields,

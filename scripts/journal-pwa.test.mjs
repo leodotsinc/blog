@@ -70,7 +70,7 @@ test("font size control sits in the bar as an accessible A−/A/A+ group", () =>
   });
   const html = renderToStaticMarkup(createElement(bar.default));
   assert.match(html, /role="group" aria-label="Tamanho da fonte"/);
-  const buttons = [...html.matchAll(/<button[^>]*>/g)].map(([tag]) => tag);
+  const buttons = [...html.matchAll(/<button[^>]*jr-fontsize__option[^>]*>/g)].map(([tag]) => tag);
   assert.equal(buttons.length, 3);
   for (const [index, label] of ["Diminuir fonte", "Tamanho padrão", "Aumentar fonte"].entries()) {
     assert.match(buttons[index], new RegExp(`type="button"`));
@@ -78,6 +78,24 @@ test("font size control sits in the bar as an accessible A−/A/A+ group", () =>
     // The server renders the default size; the inline script and CSS cover the rest before paint.
     assert.match(buttons[index], new RegExp(`aria-pressed="${index === 1}"`));
   }
+});
+
+test("journal bar carries the shared theme toggle right after the font size control", () => {
+  const bar = loadModule("components/journal/JournalBar.tsx", {
+    "next/navigation": { usePathname: () => "/journal" },
+    "next/link": { default: (input) => createElement("a", { ...input, prefetch: undefined }) },
+  });
+  const html = renderToStaticMarkup(createElement(bar.default));
+  const toggle = html.match(/<button[^>]*class="jr-theme"[^>]*>/)?.[0];
+  assert.ok(toggle, "theme toggle rendered");
+  assert.match(toggle, /type="button"/);
+  assert.match(toggle, /aria-label="Alternar tema claro\/escuro"/);
+  assert.ok(html.indexOf("Tamanho da fonte") < html.indexOf('class="jr-theme"'));
+  // The glyph (not the bordered box) gets the blog's theme-toggle transition name.
+  assert.match(html, /class="jr-theme"[^>]*><span class="jr-theme__glyph theme-toggle"/);
+  // Same mechanism as the blog header: one hook, next-themes storage and the wave.
+  assert.match(read("components/journal/JournalThemeToggle.tsx"), /useThemeWave/);
+  assert.match(read("components/ThemeSwitcher.tsx"), /useThemeWave/);
 });
 
 test("saved font size is applied to <html> before paint and only read by journal rules", () => {

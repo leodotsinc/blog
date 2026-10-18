@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import FontSizeControl from "@/components/journal/FontSizeControl";
+import JournalThemeToggle from "@/components/journal/JournalThemeToggle";
 
 /** Always present above the masthead, including empty editions and journal 404s. */
 export default function JournalBar() {
@@ -20,6 +21,7 @@ export default function JournalBar() {
             Arquivo
           </Link>
           <FontSizeControl />
+          <JournalThemeToggle />
         </div>
       </div>
     </nav>

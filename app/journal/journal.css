@@ -136,6 +136,43 @@ html[data-jr-size="lg"] .jr-root {
   margin-left: auto;
 }
 
+/* Theme toggle (shared next-themes wave): same 38px box and ink border as the
+   font size control next to it; html.dark picks the glyph before hydration. */
+.jr-theme {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--jr-ink);
+  background: none;
+  color: var(--jr-ink);
+  cursor: pointer;
+  appearance: none;
+}
+.jr-theme__glyph {
+  display: grid;
+  place-items: center;
+}
+.jr-theme__icon {
+  width: 17px;
+  height: 17px;
+  stroke-width: 1.75;
+}
+.jr-root .jr-theme__icon--dark,
+html.dark .jr-root .jr-theme__icon--light {
+  display: none;
+}
+html.dark .jr-root .jr-theme__icon--dark {
+  display: block;
+}
+@media (hover: hover) and (pointer: fine) {
+  .jr-theme:hover {
+    background: var(--jr-wash);
+  }
+}
+
 /* Font size control: a compact .jr-segmented whose state is read from <html>,
    so the thumb is already in place before hydration. */
 .jr-fontsize {
@@ -198,6 +235,20 @@ html[data-jr-size="lg"] .jr-fontsize__option[data-size="lg"] {
 @media (hover: hover) and (pointer: fine) {
   .jr-fontsize__option:not([aria-pressed="true"]):hover {
     background: var(--jr-wash);
+  }
+}
+
+/* One line at 390px with both controls; 320px wraps the right group below. */
+@media (max-width: 479px) {
+  .jr-bar {
+    gap: 0 10px;
+    letter-spacing: 0.04em;
+  }
+  .jr-bar__end {
+    gap: 6px;
+  }
+  .jr-root .jr-fontsize .jr-fontsize__option {
+    width: 30px;
   }
 }
 
