@@ -29,7 +29,7 @@ export const metadata: Metadata = {
 
 export default function ArchivePage() {
   const editions = getEditions();
-  if (!editions.length) return <EmptyJournal />;
+  if (!editions.length) return <EmptyJournal variant="archive" />;
   const months = groupByMonth(editions);
   const first = editions.at(-1);
   return (
