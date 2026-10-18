@@ -4,6 +4,13 @@
    is inert on the rest of the site even after client navigation.
    ========================================================================== */
 
+/* Reading text scale (A− / A / A+). Registered so the size change can animate. */
+@property --jr-fs {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 1;
+}
+
 html:has(.jr-root) {
   --jr-paper: #f3f3f2;
   --jr-paper-2: #e9e9e7;
@@ -53,6 +60,8 @@ html:has(.jr-root) ::selection {
   --jr-text: var(--jr-font-text), "Newsreader", Georgia, serif;
   --jr-mono: var(--jr-font-mono), ui-monospace, "SF Mono", Menlo, monospace;
   --jr-gutter: clamp(18px, 2.4vw, 36px);
+  /* Multiplies the reading text only; the bar, nameplate and section menu keep their size. */
+  --jr-fs: 1;
 
   position: relative;
   isolation: isolate;
@@ -71,6 +80,13 @@ html:has(.jr-root) ::selection {
 .jr-root *::before,
 .jr-root *::after {
   border-color: var(--jr-hair);
+}
+
+html[data-jr-size="sm"] .jr-root {
+  --jr-fs: 0.9;
+}
+html[data-jr-size="lg"] .jr-root {
+  --jr-fs: 1.15;
 }
 
 .jr-root a {
@@ -111,6 +127,129 @@ html:has(.jr-root) ::selection {
 .jr-bar a:is([aria-current="page"], :hover, :focus-visible) {
   text-decoration: underline;
   text-decoration-thickness: 1px;
+}
+.jr-bar__end {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  /* stays on the right when it wraps below the first link at 320px */
+  margin-left: auto;
+}
+
+/* Theme toggle (shared next-themes wave): same 38px box and ink border as the
+   font size control next to it; html.dark picks the glyph before hydration. */
+.jr-theme {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--jr-ink);
+  background: none;
+  color: var(--jr-ink);
+  cursor: pointer;
+  appearance: none;
+}
+.jr-theme__glyph {
+  display: grid;
+  place-items: center;
+}
+.jr-theme__icon {
+  width: 17px;
+  height: 17px;
+  stroke-width: 1.75;
+}
+.jr-root .jr-theme__icon--dark,
+html.dark .jr-root .jr-theme__icon--light {
+  display: none;
+}
+html.dark .jr-root .jr-theme__icon--dark {
+  display: block;
+}
+@media (hover: hover) and (pointer: fine) {
+  .jr-theme:hover {
+    background: var(--jr-wash);
+  }
+}
+
+/* Font size control: a compact .jr-segmented whose state is read from <html>,
+   so the thumb is already in place before hydration. */
+.jr-fontsize {
+  --jr-seg-count: 3;
+  --jr-seg-index: 1;
+  padding: 2px;
+}
+html[data-jr-size="sm"] .jr-fontsize {
+  --jr-seg-index: 0;
+}
+html[data-jr-size="lg"] .jr-fontsize {
+  --jr-seg-index: 2;
+}
+.jr-fontsize .jr-segmented__thumb {
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc((100% - 4px) / 3);
+}
+.jr-root .jr-fontsize .jr-fontsize__option {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  min-height: 32px;
+  padding: 0;
+  font-family: var(--jr-display);
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1;
+  color: var(--jr-ink);
+}
+.jr-fontsize__option[data-size="sm"] {
+  font-size: 12px;
+}
+.jr-fontsize__option[data-size="md"] {
+  font-size: 15px;
+}
+.jr-fontsize__option[data-size="lg"] {
+  font-size: 18px;
+}
+.jr-fontsize__sign {
+  font-family: var(--jr-mono);
+  font-weight: 500;
+  font-size: 0.72em;
+  margin-left: 1px;
+}
+html:not([data-jr-size="sm"], [data-jr-size="lg"]) .jr-fontsize__option[data-size="md"],
+html[data-jr-size="sm"] .jr-fontsize__option[data-size="sm"],
+html[data-jr-size="lg"] .jr-fontsize__option[data-size="lg"] {
+  color: var(--jr-paper);
+}
+/* Inset ring: readable on the paper cells and on the ink thumb alike. */
+.jr-root .jr-fontsize .jr-fontsize__option:focus-visible {
+  outline-offset: -5px;
+}
+.jr-root .jr-fontsize .jr-fontsize__option[aria-pressed="true"]:focus-visible {
+  outline-color: var(--jr-paper);
+}
+@media (hover: hover) and (pointer: fine) {
+  .jr-fontsize__option:not([aria-pressed="true"]):hover {
+    background: var(--jr-wash);
+  }
+}
+
+/* One line at 390px with both controls; 320px wraps the right group below. */
+@media (max-width: 479px) {
+  .jr-bar {
+    gap: 0 10px;
+    letter-spacing: 0.04em;
+  }
+  .jr-bar__end {
+    gap: 6px;
+  }
+  .jr-root .jr-fontsize .jr-fontsize__option {
+    width: 30px;
+  }
 }
 
 .jr-root :focus-visible {
@@ -160,7 +299,7 @@ html:has(.jr-root) ::selection {
 
 .jr-label {
   margin: 0;
-  font: 500 11px/1.3 var(--jr-mono);
+  font: 500 calc(11px * var(--jr-fs))/1.3 var(--jr-mono);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--jr-muted);
@@ -369,7 +508,7 @@ html:has(.jr-root) ::selection {
   max-width: 62ch;
   font-family: var(--jr-text);
   font-style: italic;
-  font-size: clamp(1.02rem, 0.95rem + 0.35vw, 1.2rem);
+  font-size: calc(clamp(1.02rem, 0.95rem + 0.35vw, 1.2rem) * var(--jr-fs));
   line-height: 1.45;
   color: var(--jr-ink-2);
   text-wrap: pretty;
@@ -554,7 +693,7 @@ html:has(.jr-root) ::selection {
 }
 
 .jr-kicker {
-  font: 500 11px/1.2 var(--jr-mono);
+  font: 500 calc(11px * var(--jr-fs))/1.2 var(--jr-mono);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   text-decoration: none;
@@ -570,7 +709,7 @@ html:has(.jr-root) ::selection {
   margin: 0;
   font-family: var(--jr-display);
   font-weight: 700;
-  font-size: clamp(1.32rem, 1.15rem + 0.6vw, 1.6rem);
+  font-size: calc(clamp(1.32rem, 1.15rem + 0.6vw, 1.6rem) * var(--jr-fs));
   line-height: 1.12;
   letter-spacing: -0.008em;
   text-wrap: balance;
@@ -579,7 +718,7 @@ html:has(.jr-root) ::selection {
 
 .jr-story__meta {
   margin: 10px 0 0;
-  font: 400 11px/1.3 var(--jr-mono);
+  font: 400 calc(11px * var(--jr-fs))/1.3 var(--jr-mono);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--jr-muted);
@@ -587,7 +726,7 @@ html:has(.jr-root) ::selection {
 
 .jr-body {
   margin-top: 14px;
-  font-size: 1.0625rem;
+  font-size: calc(1.0625rem * var(--jr-fs));
   line-height: 1.58;
   color: var(--jr-ink-2);
   hyphens: auto;
@@ -620,7 +759,7 @@ html:has(.jr-root) ::selection {
 }
 .jr-body h4 {
   margin: 1.3em 0 0.4em;
-  font: 500 11.5px/1.3 var(--jr-mono);
+  font: 500 calc(11.5px * var(--jr-fs))/1.3 var(--jr-mono);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--jr-ink);
@@ -740,7 +879,7 @@ html:has(.jr-root) ::selection {
   justify-content: flex-end;
   padding-top: 6px;
   min-height: 1.3em;
-  font: 400 10.5px/1.3 var(--jr-mono);
+  font: 400 calc(10.5px * var(--jr-fs))/1.3 var(--jr-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--jr-muted);
@@ -755,7 +894,7 @@ html:has(.jr-root) ::selection {
   border: 1px solid var(--jr-ink);
   box-shadow: 4px 4px 0 var(--jr-ink);
   background: var(--jr-paper);
-  font-size: 0.97rem;
+  font-size: calc(0.97rem * var(--jr-fs));
   line-height: 1.52;
   color: var(--jr-ink-2);
   break-inside: avoid;
@@ -766,7 +905,7 @@ html:has(.jr-root) ::selection {
   padding: 4px 7px 3px;
   background: var(--jr-ink);
   color: var(--jr-paper);
-  font: 500 10.5px/1 var(--jr-mono);
+  font: 500 calc(10.5px * var(--jr-fs))/1 var(--jr-mono);
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
@@ -784,7 +923,7 @@ html:has(.jr-root) ::selection {
   margin-top: 12px;
   padding-top: 9px;
   border-top: 1px solid var(--jr-hair);
-  font: 400 11px/1.5 var(--jr-mono);
+  font: 400 calc(11px * var(--jr-fs))/1.5 var(--jr-mono);
   letter-spacing: 0.04em;
   color: var(--jr-muted);
 }
@@ -832,7 +971,7 @@ html:has(.jr-root) ::selection {
   align-items: stretch;
   text-decoration: none;
   border: 1px solid var(--jr-ink);
-  font: 500 10.5px/1 var(--jr-mono);
+  font: 500 calc(10.5px * var(--jr-fs))/1 var(--jr-mono);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   transition: background-color 0.3s var(--jr-ease), color 0.3s var(--jr-ease);
@@ -888,7 +1027,7 @@ html:has(.jr-root) ::selection {
 }
 
 .jr-story--lead .jr-headline {
-  font-size: clamp(2.05rem, 1.2rem + 3.6vw, 4rem);
+  font-size: calc(clamp(2.05rem, 1.2rem + 3.6vw, 4rem) * var(--jr-fs));
   line-height: 1.02;
   font-weight: 800;
   letter-spacing: -0.018em;
@@ -897,7 +1036,7 @@ html:has(.jr-root) ::selection {
   margin-top: 14px;
 }
 .jr-story--lead .jr-body {
-  font-size: 1.125rem;
+  font-size: calc(1.125rem * var(--jr-fs));
   line-height: 1.6;
 }
 /* drop cap on the lead */
@@ -917,7 +1056,7 @@ html:has(.jr-root) ::selection {
 }
 
 .jr-story--second .jr-headline {
-  font-size: clamp(1.45rem, 1.25rem + 0.8vw, 1.85rem);
+  font-size: calc(clamp(1.45rem, 1.25rem + 0.8vw, 1.85rem) * var(--jr-fs));
   line-height: 1.08;
 }
 
@@ -990,6 +1129,7 @@ html:has(.jr-root) ::selection {
 }
 
 .jr-section__rail {
+  container-type: inline-size;
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: baseline;
@@ -998,7 +1138,7 @@ html:has(.jr-root) ::selection {
 }
 .jr-section__folio {
   margin: 0;
-  font: 500 12px/1 var(--jr-mono);
+  font: 500 calc(12px * var(--jr-fs))/1 var(--jr-mono);
   letter-spacing: 0.12em;
   color: var(--jr-muted);
 }
@@ -1007,14 +1147,18 @@ html:has(.jr-root) ::selection {
   font-family: var(--jr-display);
   font-style: italic;
   font-weight: 800;
-  font-size: clamp(2.2rem, 1.6rem + 2.4vw, 3.4rem);
+  /* A+ grows it only while "Tecnologia" (~4.7em) still fits the rail; never below the default. */
+  font-size: min(
+    calc(clamp(2.2rem, 1.6rem + 2.4vw, 3.4rem) * var(--jr-fs)),
+    max(clamp(2.2rem, 1.6rem + 2.4vw, 3.4rem), 20cqi)
+  );
   line-height: 1;
   letter-spacing: -0.02em;
 }
 .jr-section__count {
   grid-column: 2;
   margin: 6px 0 0;
-  font: 400 11px/1.3 var(--jr-mono);
+  font: 400 calc(11px * var(--jr-fs))/1.3 var(--jr-mono);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--jr-muted);
@@ -1035,7 +1179,7 @@ html:has(.jr-root) ::selection {
 .jr-section__featured a {
   font-family: var(--jr-display);
   font-weight: 600;
-  font-size: 1rem;
+  font-size: calc(1rem * var(--jr-fs));
   line-height: 1.25;
   text-decoration: none;
   text-wrap: balance;
@@ -1149,7 +1293,7 @@ html:has(.jr-root) ::selection {
   gap: 22px var(--jr-gutter);
   padding-block: 22px 28px;
   border-top: 1px solid var(--jr-ink);
-  font-size: 0.97rem;
+  font-size: calc(0.97rem * var(--jr-fs));
   line-height: 1.5;
   color: var(--jr-ink-2);
 }
@@ -1171,12 +1315,12 @@ html:has(.jr-root) ::selection {
   padding: 0;
   font-family: var(--jr-display);
   font-weight: 600;
-  font-size: 1.15rem;
+  font-size: calc(1.15rem * var(--jr-fs));
 }
 .jr-colophon__links {
   display: flex;
   gap: 18px;
-  font: 500 11px/1 var(--jr-mono);
+  font: 500 calc(11px * var(--jr-fs))/1 var(--jr-mono);
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
@@ -1215,7 +1359,7 @@ html:has(.jr-root) ::selection {
 .jr-pager__title {
   font-family: var(--jr-display);
   font-weight: 700;
-  font-size: clamp(1.1rem, 1rem + 0.5vw, 1.35rem);
+  font-size: calc(clamp(1.1rem, 1rem + 0.5vw, 1.35rem) * var(--jr-fs));
   line-height: 1.2;
 }
 .jr-pager__link:hover,
@@ -1240,7 +1384,7 @@ html:has(.jr-root) ::selection {
   border-top: 1px solid var(--jr-ink);
 }
 .jr-more {
-  font: 500 11px/1 var(--jr-mono);
+  font: 500 calc(11px * var(--jr-fs))/1 var(--jr-mono);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   text-decoration: none;
@@ -1277,12 +1421,12 @@ html:has(.jr-root) ::selection {
 .jr-recent__number {
   font-family: var(--jr-display);
   font-weight: 800;
-  font-size: 1.5rem;
+  font-size: calc(1.5rem * var(--jr-fs));
   line-height: 1;
   grid-row: span 2;
 }
 .jr-recent__date {
-  font: 400 11px/1.2 var(--jr-mono);
+  font: 400 calc(11px * var(--jr-fs))/1.2 var(--jr-mono);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--jr-muted);
@@ -1322,7 +1466,7 @@ html:has(.jr-root) ::selection {
   font-family: var(--jr-display);
   font-style: italic;
   font-weight: 800;
-  font-size: clamp(2.6rem, 1.8rem + 3.4vw, 4.6rem);
+  font-size: calc(clamp(2.6rem, 1.8rem + 3.4vw, 4.6rem) * var(--jr-fs));
   line-height: 0.95;
   letter-spacing: -0.025em;
 }
@@ -1330,7 +1474,7 @@ html:has(.jr-root) ::selection {
   margin: 0;
   max-width: 52ch;
   font-style: italic;
-  font-size: 1.15rem;
+  font-size: calc(1.15rem * var(--jr-fs));
   color: var(--jr-ink-2);
 }
 .jr-archive__toolbar {
@@ -1358,12 +1502,12 @@ html:has(.jr-root) ::selection {
   margin: 0;
   font-family: var(--jr-display);
   font-weight: 800;
-  font-size: clamp(1.6rem, 1.3rem + 1.2vw, 2.3rem);
+  font-size: calc(clamp(1.6rem, 1.3rem + 1.2vw, 2.3rem) * var(--jr-fs));
   letter-spacing: -0.015em;
 }
 .jr-month__count {
   margin: 0;
-  font: 400 11px/1 var(--jr-mono);
+  font: 400 calc(11px * var(--jr-fs))/1 var(--jr-mono);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--jr-muted);
@@ -1393,13 +1537,13 @@ html:has(.jr-root) ::selection {
   flex-direction: column;
   font-family: var(--jr-display);
   font-weight: 800;
-  font-size: clamp(2.2rem, 1.8rem + 1.6vw, 3.4rem);
+  font-size: calc(clamp(2.2rem, 1.8rem + 1.6vw, 3.4rem) * var(--jr-fs));
   line-height: 0.9;
   letter-spacing: -0.03em;
   transition: transform 0.45s var(--jr-ease);
 }
 .jr-entry__number span {
-  font: 500 10.5px/1 var(--jr-mono);
+  font: 500 calc(10.5px * var(--jr-fs))/1 var(--jr-mono);
   letter-spacing: 0.14em;
   color: var(--jr-muted);
   margin-bottom: 6px;
@@ -1410,7 +1554,7 @@ html:has(.jr-root) ::selection {
 }
 .jr-entry__date {
   margin: 0;
-  font: 500 11px/1.3 var(--jr-mono);
+  font: 500 calc(11px * var(--jr-fs))/1.3 var(--jr-mono);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--jr-muted);
@@ -1419,7 +1563,7 @@ html:has(.jr-root) ::selection {
   margin: 6px 0 0;
   font-family: var(--jr-display);
   font-weight: 700;
-  font-size: clamp(1.35rem, 1.2rem + 0.7vw, 1.8rem);
+  font-size: calc(clamp(1.35rem, 1.2rem + 0.7vw, 1.8rem) * var(--jr-fs));
   line-height: 1.1;
   text-wrap: balance;
 }
@@ -1460,13 +1604,13 @@ html:has(.jr-root) ::selection {
   border-top: 1px solid var(--jr-hair);
   display: grid;
   gap: 8px;
-  font-size: 0.98rem;
+  font-size: calc(0.98rem * var(--jr-fs));
   line-height: 1.35;
 }
 .jr-entry__section {
   display: block;
   margin-bottom: 5px;
-  font: 500 10.5px/1 var(--jr-mono);
+  font: 500 calc(10.5px * var(--jr-fs))/1 var(--jr-mono);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--jr-muted);
@@ -1491,7 +1635,7 @@ html:has(.jr-root) ::selection {
     display: block;
     align-self: start;
     margin-top: 1.4rem;
-    font-size: 1.4rem;
+    font-size: calc(1.4rem * var(--jr-fs));
     opacity: 0;
     transform: translateX(-8px);
     transition: opacity 0.35s var(--jr-ease), transform 0.45s var(--jr-ease);
@@ -1527,13 +1671,13 @@ html:has(.jr-root) ::selection {
   border-bottom: 4px solid var(--jr-ink);
   font-family: var(--jr-display);
   font-weight: 800;
-  font-size: clamp(1.5rem, 1.3rem + 1vw, 2.1rem);
+  font-size: calc(clamp(1.5rem, 1.3rem + 1vw, 2.1rem) * var(--jr-fs));
   letter-spacing: -0.015em;
 }
 .jr-calendar th {
   padding: 10px 0 8px;
   border-bottom: 1px solid var(--jr-ink);
-  font: 500 10.5px/1 var(--jr-mono);
+  font: 500 calc(10.5px * var(--jr-fs))/1 var(--jr-mono);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   text-align: left;
@@ -1564,7 +1708,7 @@ html:has(.jr-root) ::selection {
   text-decoration: none;
 }
 .jr-calendar__number {
-  font: 400 12px/1 var(--jr-mono);
+  font: 400 calc(12px * var(--jr-fs))/1 var(--jr-mono);
 }
 .jr-calendar__day--edition {
   color: var(--jr-ink);
@@ -1575,10 +1719,10 @@ html:has(.jr-root) ::selection {
 .jr-calendar__day--edition .jr-calendar__number {
   font-family: var(--jr-display);
   font-weight: 800;
-  font-size: clamp(1.1rem, 0.9rem + 1vw, 1.6rem);
+  font-size: calc(clamp(1.1rem, 0.9rem + 1vw, 1.6rem) * var(--jr-fs));
 }
 .jr-calendar__edition {
-  font: 500 10px/1 var(--jr-mono);
+  font: 500 calc(10px * var(--jr-fs))/1 var(--jr-mono);
   letter-spacing: 0.08em;
 }
 .jr-calendar__day--edition:hover,
@@ -1601,7 +1745,7 @@ html:has(.jr-root) ::selection {
 }
 .jr-empty__message {
   margin: 0;
-  font: italic 400 clamp(1.25rem, 1.1rem + 0.6vw, 1.6rem)/1.4 var(--jr-text);
+  font: italic 400 calc(clamp(1.25rem, 1.1rem + 0.6vw, 1.6rem) * var(--jr-fs))/1.4 var(--jr-text);
   color: var(--jr-muted);
 }
 
@@ -1637,6 +1781,10 @@ html:has(.jr-root) ::selection {
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  .jr-root {
+    transition: --jr-fs 0.45s var(--jr-ease);
+  }
+
   .jr-enter--1 {
     animation: jr-fade 0.6s var(--jr-ease) both;
   }

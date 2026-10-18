@@ -5,6 +5,7 @@ import { IBM_Plex_Mono, Newsreader, Playfair_Display, UnifrakturMaguntia } from 
 import { JournalTransitions } from "@/components/journal/JournalTransitions";
 import JournalPWA from "@/components/journal/JournalPWA";
 import JournalBar from "@/components/journal/JournalBar";
+import { FONT_SIZE_SCRIPT } from "@/lib/journal/font-size";
 import "./journal.css";
 
 // Loaded only on journal routes; every rule in journal.css is scoped to .jr-root.
@@ -65,6 +66,8 @@ export default function JournalLayout({ children }: { children: React.ReactNode 
       lang="pt-BR"
       className={`jr-root ${nameplate.variable} ${display.variable} ${text.variable} ${mono.variable}`}
     >
+      {/* Saved reading size, applied before the first paint (LEO-21). */}
+      <script dangerouslySetInnerHTML={{ __html: FONT_SIZE_SCRIPT }} />
       <JournalPWA />
       <JournalBar />
       <JournalTransitions>{children}</JournalTransitions>
