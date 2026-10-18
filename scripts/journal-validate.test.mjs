@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { closeSync, copyFileSync, cpSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -71,10 +71,19 @@ async function runCli(root, ...args) {
 
 test("the real repository passes loadJournal and the CLI", async () => {
   const result = loadJournal({ root: repo });
-  assert.ok(result.editions.length >= 3);
   assert.deepEqual(result.issues.filter((issue) => issue.level === "error"), []);
   const { stdout } = await runCli(repo);
   assert.match(stdout, /journal: \d+ edition\(s\) valid/);
+});
+
+test("an empty journal with directory placeholders passes", async (t) => {
+  const root = fixture(t);
+  write(root, "data/journal/.gitkeep", "");
+  write(root, "public/journal/.gitkeep", "");
+  assert.deepEqual(loadJournal({ root }), { editions: [], issues: [] });
+  const { stdout, stderr } = await runCli(root);
+  assert.match(stdout, /journal: 0 edition\(s\) valid/);
+  assert.equal(stderr, "");
 });
 
 test("a minimal temporary edition passes", async (t) => {
@@ -142,21 +151,22 @@ for (const entry of failures) {
 
 test("the documented two-story example validates with its stated prerequisites", async (t) => {
   const root = fixture(t);
-  cpSync(path.join(repo, "data/journal"), path.join(root, "data/journal"), { recursive: true });
-  cpSync(path.join(repo, "public/journal"), path.join(root, "public/journal"), { recursive: true });
+  const earlier = edition("2026-10-16", 3);
+  earlier.highlights = ["vila-esperanca-chuvas"];
+  earlier.stories[0].id = "vila-esperanca-chuvas";
+  write(root, "data/journal/2026-10-16.md", markdown(earlier, body.replace("first-story", "vila-esperanca-chuvas")));
   const doc = readFileSync(path.join(repo, "docs/journal-format.md"), "utf8");
   const example = /```markdown\n([\s\S]*?)\n```/.exec(doc)?.[1];
   assert.ok(example, "documentation must contain a complete Markdown edition");
   write(root, "data/journal/2026-10-19.md", example);
-  mkdirSync(path.join(root, "public/journal/2026-10-19"), { recursive: true });
-  copyFileSync(path.join(root, "public/journal/2026-10-16/chip.webp"), path.join(root, "public/journal/2026-10-19/chip.webp"));
+  write(root, "public/journal/2026-10-19/chip.png", png);
   const result = loadJournal({ root });
   assert.deepEqual(result.issues, []);
   const added = result.editions.find((item) => item.date === "2026-10-19");
   assert.equal(added.stories.length, 2);
   assert.ok(added.stories[0].context);
   assert.equal(added.stories[0].update.href, "/journal/2026-10-16#vila-esperanca-chuvas");
-  assert.deepEqual(added.images, ["/journal/2026-10-19/chip.webp"]);
+  assert.deepEqual(added.images, ["/journal/2026-10-19/chip.png"]);
   await runCli(root);
 });
 

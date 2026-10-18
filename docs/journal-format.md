@@ -10,7 +10,8 @@ every commit's paths, including both sides of renames and deletions.
 ## Files and frontmatter
 
 Only regular files named `YYYY-MM-DD.md` with a valid calendar date belong directly
-in `data/journal/`; subdirectories and other entries fail. Start at the first line
+in `data/journal/`; an empty `.gitkeep` may preserve each journal root directory.
+Subdirectories and other content entries fail. Start at the first line
 with `---`, then YAML, then another exact `---` line. Duplicate YAML keys and
 unknown fields at every object level fail. No fields accept `null`.
 
@@ -106,13 +107,12 @@ come from headers at build time; no explicit maximum dimensions are enforced.
 
 ## Minimal two-story example
 
-This complete example extends the repository's sample editions (numbers 1–3).
-It requires the existing valid `2026-10-16` edition for `update_of`. Save it as
-`data/journal/2026-10-19.md` and provide
-`public/journal/2026-10-19/chip.webp`. For a local demonstration, copy the existing
-`public/journal/2026-10-16/chip.webp` there; production images must be downloaded
-and prepared for their edition. In an empty tree, first supply the referenced
-earlier edition. The schema itself permits a single story.
+This illustrative example requires a valid earlier `2026-10-16` edition with an
+edition number below 4 for `update_of`. It is documentation only: the repository
+ships no sample editions. Save it as `data/journal/2026-10-19.md` and provide
+`public/journal/2026-10-19/chip.png` only when preparing real content. Tests create
+these prerequisites exclusively in temporary directories. The schema itself
+permits a single story.
 
 ```markdown
 ---
@@ -152,7 +152,7 @@ The earlier edition describes the fictional recovery programme.
 
 An illustration accompanies this synthetic chip report.
 
-![Abstract circuit traces around a central square](/journal/2026-10-19/chip.webp "Synthetic illustration")
+![Abstract circuit traces around a central square](/journal/2026-10-19/chip.png "Synthetic illustration")
 ```
 
 ## Rendering and reading time

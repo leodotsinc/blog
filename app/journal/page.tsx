@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import EditionView from "@/components/journal/EditionView";
-import { Nameplate, Rule } from "@/components/journal/Masthead";
+import EmptyJournal from "@/components/journal/EmptyJournal";
 import { getEditions, getLatestEdition, longDate } from "@/lib/journal";
 
 export const dynamic = "force-static";
@@ -32,18 +32,6 @@ export function generateMetadata(): Metadata {
 export default function JournalCover() {
   const editions = getEditions();
   const [latest, ...previous] = editions;
-  if (!latest) {
-    return (
-      <div className="jr-shell jr-empty">
-        <header className="jr-masthead jr-masthead--cover">
-          <div className="jr-flag">
-            <Nameplate as="h1" />
-          </div>
-          <Rule />
-        </header>
-        <p className="jr-dek__text">A primeira edição chega em breve, num dia útil pela manhã.</p>
-      </div>
-    );
-  }
+  if (!latest) return <EmptyJournal />;
   return <EditionView edition={latest} variant="cover" recent={previous.slice(0, 4)} />;
 }

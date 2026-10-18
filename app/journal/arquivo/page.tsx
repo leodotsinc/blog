@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { ArchiveCalendar, ArchiveList, groupByMonth } from "@/components/journal/Archive";
 import { Nameplate, Rule } from "@/components/journal/Masthead";
+import EmptyJournal from "@/components/journal/EmptyJournal";
 import Reveal from "@/components/journal/Reveal";
 import { ArchiveViews } from "@/components/journal/Segmented";
 import { getEditions, longDate } from "@/lib/journal";
@@ -28,6 +29,7 @@ export const metadata: Metadata = {
 
 export default function ArchivePage() {
   const editions = getEditions();
+  if (!editions.length) return <EmptyJournal />;
   const months = groupByMonth(editions);
   const first = editions.at(-1);
   return (
