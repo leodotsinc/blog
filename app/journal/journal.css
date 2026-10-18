@@ -1650,13 +1650,14 @@ html.jr-vt .jr-page {
 html.jr-vt::view-transition-group(root) {
   animation-duration: 0.45s;
 }
-html.jr-vt::view-transition-old(root),
-html.jr-vt::view-transition-new(root) {
-  animation: jr-vt-fade 0.35s ease both;
-  mix-blend-mode: plus-lighter;
-}
+/* plain crossfade: the old snapshot stays opaque underneath, so nothing
+   ever flashes brighter than the paper */
 html.jr-vt::view-transition-old(root) {
-  animation-direction: reverse;
+  animation: none;
+}
+html.jr-vt::view-transition-new(root) {
+  animation: jr-vt-fade 0.3s ease-out both;
+  mix-blend-mode: normal;
 }
 html.jr-vt::view-transition-group(jr-nameplate),
 html.jr-vt::view-transition-group(jr-strip) {
@@ -1667,10 +1668,10 @@ html.jr-vt::view-transition-group(jr-page) {
   animation: none;
 }
 html.jr-vt::view-transition-old(jr-page) {
-  animation: jr-vt-out 0.24s cubic-bezier(0.4, 0, 1, 1) both;
+  animation: jr-vt-out 0.2s cubic-bezier(0.4, 0, 1, 1) both;
 }
 html.jr-vt::view-transition-new(jr-page) {
-  animation: jr-vt-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+  animation: jr-vt-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 @keyframes jr-vt-fade {
   from {
