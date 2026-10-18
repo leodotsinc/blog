@@ -4,8 +4,8 @@ import { test } from 'node:test';
 import { legal } from '../data/legal.ts';
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
-const privacySource = read('app/privacy/page.tsx');
-const termsSource = read('app/terms/page.tsx');
+const privacySource = read('app/(site)/privacy/page.tsx');
+const termsSource = read('app/(site)/terms/page.tsx');
 const sitemapSource = read('app/sitemap.ts');
 const footerSource = read('components/Footer.tsx');
 

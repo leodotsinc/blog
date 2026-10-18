@@ -2,10 +2,6 @@ import type { Metadata } from "next";
 import { Montserrat } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
-import Footer from "@/components/Footer";
-import SiteHeader from "@/components/nav/SiteHeader";
-import SmoothScroll from "@/components/SmoothScroll";
-import { buildCommandIndex } from "@/lib/commandIndex";
 
 import Script from "next/script";
 
@@ -26,7 +22,10 @@ export const metadata: Metadata = {
   description:
     "Tech Lead at Getnet (Santander). Nine years designing distributed systems for aviation and payments — architecture, cloud and engineering leadership.",
   icons: {
-    icon: [{ url: "/logo.svg", type: "image/svg+xml" }],
+    icon: [
+      { url: "/favicon.ico", type: "image/x-icon", sizes: "16x16" },
+      { url: "/logo.svg", type: "image/svg+xml" },
+    ],
     shortcut: "/logo.svg",
     apple: "/logo.svg",
   },
@@ -45,10 +44,7 @@ export default function RootLayout({
           defaultTheme="system"
           enableSystem
         >
-          <SmoothScroll />
-          <SiteHeader commands={buildCommandIndex()} />
-          <main className="flex-grow pt-20">{children}</main>
-          <Footer />
+          {children}
           {process.env.NODE_ENV === 'production' && (
             <Script
               src="https://umami.leodots.dev/script.js"

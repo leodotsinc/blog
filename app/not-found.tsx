@@ -1,7 +1,9 @@
 import Link from 'next/link'
+import SiteShell from '@/components/SiteShell'
 
 export default function NotFound() {
   return (
+    <SiteShell>
     <div className="flex min-h-[60vh] flex-col items-center justify-center space-y-4">
       <h1 className="text-6xl font-bold">404</h1>
       <h2 className="text-2xl font-semibold">Page Not Found</h2>
@@ -15,5 +17,6 @@ export default function NotFound() {
         Go back home
       </Link>
     </div>
+    </SiteShell>
   )
 }

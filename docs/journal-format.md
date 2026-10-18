@@ -1,5 +1,9 @@
 # Leo's Journal: Grok Bot contract
 
+The standalone Journal app, offline cache and logo regeneration pipeline are
+documented in [Journal PWA](journal-pwa.md). App assets are separate from daily
+edition content and must never be published through the daily path.
+
 Write one edition per weekday in `data/journal/YYYY-MM-DD.md`. The source of truth
 is `lib/journal/core.mjs`, shared by validation and rendering. The daily publishing
 rule is: **commits for the daily path may only touch `data/journal/` and

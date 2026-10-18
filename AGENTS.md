@@ -12,6 +12,7 @@ Falha exige diagnóstico antes de rerun; não usar skip de CI para publicar.
 
 - Toda PR referencia seu card do Linear: o ID entra no nome da branch (por exemplo, `feat/leo-12-journal`) e a descrição da PR inclui `Fixes LEO-X`.
 - As edições do Journal ficam em `data/journal/` + `public/journal/`; o formato está em `docs/journal-format.md`. A publicação diária altera somente esses caminhos, conforme `scripts/journal-guard.sh`.
+- O Journal usa layout sem chrome do blog, manifest/SW com escopo `/journal` e filtro de caminhos exatos `/journal` ou `/journal/*` e ícones em `public/journal-app/`, gerados por `scripts/journal-icons.mjs` a partir de `assets/journal-icon/source.{png,svg}`; ver `docs/journal-pwa.md`.
 
 ## Hero e desempenho
 
