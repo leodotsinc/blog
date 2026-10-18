@@ -738,7 +738,24 @@ html[data-jr-size="lg"] .jr-fontsize__option[data-size="lg"] {
 }
 .jr-body p {
   margin: 0 0 0.8em;
-  text-wrap: pretty;
+}
+/* Justified running text fills its column (or CSS column) edge to edge.
+   Hyphenation follows lang="pt-BR" on .jr-root; no text-wrap pretty/balance
+   here, since re-breaking lines under justify opens rivers. The last line
+   stays left-aligned (text-align-last: auto). */
+.jr-body > p,
+.jr-body > :is(ul, ol) > li,
+.jr-context > p:not(.jr-context__label),
+.jr-context > :is(ul, ol) > li {
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  hyphenate-limit-chars: 6 3 3;
+  /* WebKit lacks hyphenate-limit-chars; these keep "diplo-/ma"-style breaks out. */
+  -webkit-hyphenate-limit-before: 3;
+  -webkit-hyphenate-limit-after: 3;
+  -webkit-hyphenate-limit-lines: 2;
 }
 .jr-body strong {
   color: var(--jr-ink);
@@ -832,6 +849,7 @@ html[data-jr-size="lg"] .jr-fontsize__option[data-size="lg"] {
 }
 .jr-body blockquote p {
   margin: 0;
+  text-wrap: pretty;
 }
 @media (min-width: 720px) {
   .jr-body blockquote p {
@@ -911,7 +929,6 @@ html[data-jr-size="lg"] .jr-fontsize__option[data-size="lg"] {
 }
 .jr-context p {
   margin: 0 0 0.75em;
-  text-wrap: pretty;
 }
 
 /* credit line */
