@@ -4,7 +4,7 @@ import { test } from "node:test";
 import vm from "node:vm";
 import { createRequire } from "node:module";
 import ts from "typescript";
-import { createElement } from "react";
+import React, { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { journalManifest as manifest } from "../lib/journal/pwa.mjs";
 
@@ -127,6 +127,33 @@ test("saved font size is applied to <html> before paint and only read by journal
     assert.match(rule, /\.jr-(root|fontsize)/, rule);
   }
   assert.match(css, /@media \(prefers-reduced-motion: no-preference\) \{\s*\.jr-root \{\s*transition: --jr-fs/);
+});
+
+test("headlines mode turns each headline into a disclosure; full mode keeps the plain heading", () => {
+  const props = { storyId: "fim-da-6x1", titleId: "fim-da-6x1-titulo", contentId: "fim-da-6x1-conteudo", title: "Fim da 6x1 é promulgado" };
+  const render = (state) => {
+    const { StoryHeadline } = loadModule("components/journal/Reading.tsx", { react: { ...React, useContext: () => state } });
+    return renderToStaticMarkup(createElement(StoryHeadline, props));
+  };
+  const plain = '<h3 id="fim-da-6x1-titulo" class="jr-headline">Fim da 6x1 é promulgado</h3>';
+  assert.equal(render(null), plain);
+  assert.equal(render({ mode: "full", open: new Set(["fim-da-6x1"]) }), plain);
+
+  for (const open of [false, true]) {
+    const html = render({ mode: "headlines", open: new Set(open ? ["fim-da-6x1"] : []) });
+    assert.match(html, /^<h3 id="fim-da-6x1-titulo" class="jr-headline"><button type="button" class="jr-headline__toggle"/);
+    assert.match(html, new RegExp(`aria-expanded="${open}" aria-controls="fim-da-6x1-conteudo" aria-describedby="jr-headline-hint"`));
+    // The marker stays glued to the last word and out of the accessible name.
+    assert.match(html, />Fim da 6x1 é <span class="jr-headline__end">promulgado<span class="jr-headline__marker" aria-hidden="true"><\/span><\/span><\/button><\/h3>$/);
+  }
+
+  const story = read("components/journal/Story.tsx");
+  assert.match(story, /<div id=\{contentId\} className="jr-story__more">/);
+  const css = read("app/journal/journal.css");
+  // Layout-neutral wrapper in full mode; only headlines mode collapses it.
+  assert.match(css, /\.jr-story__more,\s*\.jr-story__more-inner \{\s*display: contents;/);
+  assert.doesNotMatch(css, /data-reading="headlines"\][^{]*\.jr-body[^{]*\{\s*display: none/);
+  assert.match(css, /\.jr-story:has\(> \.jr-headline \[aria-expanded="true"\]\) \.jr-story__more \{\s*grid-template-rows: 1fr;/);
 });
 
 function harness({ fetcher = async () => new Response("fresh", { headers: { "Content-Type": "text/html" } }), client = "/journal", immediateTimeout = false, downloadTimeout, storageFails = false } = {}) {

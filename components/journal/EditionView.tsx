@@ -1,5 +1,6 @@
 import { JournalLink } from "@/components/journal/JournalTransitions";
 import Masthead from "@/components/journal/Masthead";
+import { ReadingProvider } from "@/components/journal/Reading";
 import Reveal from "@/components/journal/Reveal";
 import SectionNav from "@/components/journal/SectionNav";
 import { ReadingMode } from "@/components/journal/Segmented";
@@ -128,7 +129,7 @@ export default function EditionView({
   ];
 
   return (
-    <>
+    <ReadingProvider target="jr-edition">
       <a href="#destaques" className="jr-skip">
         Pular para as notícias
       </a>
@@ -141,7 +142,7 @@ export default function EditionView({
         />
         <div className="jr-dek jr-enter jr-enter--4">
           <p className="jr-dek__text">{edition.description}</p>
-          <ReadingMode target="jr-edition" />
+          <ReadingMode />
         </div>
       </div>
 
@@ -221,6 +222,6 @@ export default function EditionView({
         </div>
       </div>
       <Reveal />
-    </>
+    </ReadingProvider>
   );
 }

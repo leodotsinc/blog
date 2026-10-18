@@ -2,6 +2,8 @@
 
 import { useState, type ReactNode } from "react";
 
+import { useReading } from "@/components/journal/Reading";
+
 interface Option<T extends string> {
   value: T;
   label: string;
@@ -46,21 +48,18 @@ export function Segmented<T extends string>({
   );
 }
 
-/** Full text or headlines only, applied to the edition by a data attribute. */
-export function ReadingMode({ target }: { target: string }) {
-  const [mode, setMode] = useState<"full" | "headlines">("full");
+/** Full text or headlines only, shared with the edition by `ReadingProvider`. */
+export function ReadingMode() {
+  const reading = useReading();
   return (
     <Segmented
       label="Modo de leitura"
-      value={mode}
+      value={reading?.mode ?? "full"}
       options={[
         { value: "full", label: "Completo" },
         { value: "headlines", label: "Manchetes" },
       ]}
-      onChange={(next) => {
-        setMode(next);
-        document.getElementById(target)?.setAttribute("data-reading", next);
-      }}
+      onChange={(next) => reading?.setMode(next)}
     />
   );
 }
