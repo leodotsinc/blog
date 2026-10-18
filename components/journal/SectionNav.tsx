@@ -49,8 +49,14 @@ export default function SectionNav({ items, progressTarget }: { items: Item[]; p
       indicator.style.transform = `translateX(${link.offsetLeft}px) scaleX(${link.offsetWidth})`;
       indicator.dataset.ready = "true";
     };
+    const edge = () => list.toggleAttribute("data-end", list.scrollLeft + list.clientWidth >= list.scrollWidth - 2);
     place();
-    const resize = new ResizeObserver(place);
+    edge();
+    list.addEventListener("scroll", edge, { passive: true });
+    const resize = new ResizeObserver(() => {
+      place();
+      edge();
+    });
     resize.observe(list);
     list.querySelectorAll("a").forEach((link) => resize.observe(link));
 
@@ -63,7 +69,10 @@ export default function SectionNav({ items, progressTarget }: { items: Item[]; p
         behavior: reduced ? "auto" : "smooth",
       });
     }
-    return () => resize.disconnect();
+    return () => {
+      resize.disconnect();
+      list.removeEventListener("scroll", edge);
+    };
   }, [active]);
 
   // Stuck state and reading progress, at most once per frame.

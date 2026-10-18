@@ -191,7 +191,7 @@ export default function EditionView({
                       {section.featured.map((story) => (
                         <li key={story.id}>
                           <a href={`#${story.id}`}>
-                            <span aria-hidden>↑ </span>
+                            <span className="jr-section__featured__arrow" aria-hidden>↑</span>
                             {story.title}
                           </a>
                         </li>

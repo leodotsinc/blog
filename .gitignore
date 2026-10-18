@@ -21,6 +21,8 @@ public/sitemap.xml
 # production
 /build
 *.xml
+# route handler folder, not a generated feed
+!/app/journal/rss.xml/
 
 # rss feed
 /public/feed.xml
