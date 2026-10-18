@@ -19,24 +19,36 @@ test("cover keeps Next's default canonical URL without a global proxy", () => {
   assert.doesNotMatch(read("next.config.ts"), /skipTrailingSlashRedirect|trailingSlash|source: ["']\/journal/);
 });
 
-test("top journal bar always offers archive/latest links and marks the current page", () => {
+// Loads a TSX/TS module in a VM; `@/` imports resolve to sibling sources.
+function loadModule(path, mocks = {}) {
   const require = createRequire(import.meta.url);
-  let pathname;
   const context = { exports: {}, require: (name) => {
-    if (name === "next/navigation") return { usePathname: () => pathname };
-    if (name === "next/link") return { default: (input) => {
-      const props = { ...input };
-      delete props.prefetch;
-      return createElement("a", props);
-    } };
+    if (name in mocks) return mocks[name];
+    if (name.startsWith("@/")) {
+      const base = name.slice(2);
+      return loadModule(existsSync(new URL(`../${base}.tsx`, import.meta.url)) ? `${base}.tsx` : `${base}.ts`, mocks);
+    }
     return require(name);
   } };
-  const compiled = ts.transpileModule(read("components/journal/JournalBar.tsx"), {
+  const compiled = ts.transpileModule(read(path), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
   }).outputText;
   vm.runInNewContext(compiled, context);
+  return context.exports;
+}
+
+test("top journal bar always offers archive/latest links and marks the current page", () => {
+  let pathname;
+  const bar = loadModule("components/journal/JournalBar.tsx", {
+    "next/navigation": { usePathname: () => pathname },
+    "next/link": { default: (input) => {
+      const props = { ...input };
+      delete props.prefetch;
+      return createElement("a", props);
+    } },
+  });
   for (pathname of ["/journal", "/journal/2026-10-18", "/journal/arquivo", "/journal/missing"]) {
-    const html = renderToStaticMarkup(createElement(context.exports.default));
+    const html = renderToStaticMarkup(createElement(bar.default));
     assert.match(html, /href="\/journal\/arquivo"[^>]*>Arquivo<\/a>/);
     assert.match(html, /href="\/journal"/);
     assert.match(html, /Edição mais recente/);
@@ -49,6 +61,54 @@ test("top journal bar always offers archive/latest links and marks the current p
   }
   const layout = read("app/journal/layout.tsx");
   assert.ok(layout.indexOf("<JournalBar />") < layout.indexOf("<JournalTransitions>"));
+});
+
+test("font size control sits in the bar as an accessible A−/A/A+ group", () => {
+  const bar = loadModule("components/journal/JournalBar.tsx", {
+    "next/navigation": { usePathname: () => "/journal/2026-10-18" },
+    "next/link": { default: (input) => createElement("a", { ...input, prefetch: undefined }) },
+  });
+  const html = renderToStaticMarkup(createElement(bar.default));
+  assert.match(html, /role="group" aria-label="Tamanho da fonte"/);
+  const buttons = [...html.matchAll(/<button[^>]*>/g)].map(([tag]) => tag);
+  assert.equal(buttons.length, 3);
+  for (const [index, label] of ["Diminuir fonte", "Tamanho padrão", "Aumentar fonte"].entries()) {
+    assert.match(buttons[index], new RegExp(`type="button"`));
+    assert.match(buttons[index], new RegExp(`aria-label="${label}"`));
+    // The server renders the default size; the inline script and CSS cover the rest before paint.
+    assert.match(buttons[index], new RegExp(`aria-pressed="${index === 1}"`));
+  }
+});
+
+test("saved font size is applied to <html> before paint and only read by journal rules", () => {
+  const { FONT_SIZE_SCRIPT, parseFontSize } = loadModule("lib/journal/font-size.ts");
+  const run = (stored, { throws = false, initial } = {}) => {
+    const attributes = new Map(initial ? [["data-jr-size", initial]] : []);
+    const documentElement = {
+      setAttribute: (name, value) => attributes.set(name, value),
+      removeAttribute: (name) => attributes.delete(name),
+    };
+    const localStorage = { getItem: (key) => {
+      if (throws) throw new Error("blocked");
+      return key === "jr-font-size" ? stored : null;
+    } };
+    vm.runInNewContext(FONT_SIZE_SCRIPT, { document: { documentElement }, localStorage });
+    return attributes.get("data-jr-size");
+  };
+  assert.equal(run("sm"), "sm");
+  assert.equal(run("lg"), "lg");
+  assert.equal(run(null, { initial: "lg" }), undefined);
+  assert.equal(run("huge", { initial: "sm" }), undefined);
+  assert.equal(run("lg", { throws: true }), undefined);
+  assert.deepEqual(["sm", "md", "lg", null, "x"].map(parseFontSize), ["sm", "md", "lg", "md", "md"]);
+
+  const layout = read("app/journal/layout.tsx");
+  assert.ok(layout.indexOf("FONT_SIZE_SCRIPT") < layout.indexOf("<JournalBar />"));
+  const css = read("app/journal/journal.css");
+  for (const rule of css.match(/^[^\n{}@]*data-jr-size[^{]*\{/gm)) {
+    assert.match(rule, /\.jr-(root|fontsize)/, rule);
+  }
+  assert.match(css, /@media \(prefers-reduced-motion: no-preference\) \{\s*\.jr-root \{\s*transition: --jr-fs/);
 });
 
 function harness({ fetcher = async () => new Response("fresh", { headers: { "Content-Type": "text/html" } }), client = "/journal", immediateTimeout = false, downloadTimeout, storageFails = false } = {}) {
