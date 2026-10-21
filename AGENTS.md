@@ -68,6 +68,7 @@ Falha exige diagnóstico antes de rerun; não usar skip de CI para publicar.
 
 - Blog **0.1.0** implantado em 14/09/2026, commit `01990f4d3d0b16fa5832b4340e4da477c9387e4e`, após CI `34864714015` e imagem qualificada no build `34865012930`. A [release v0.1.0](https://github.com/leodotsinc/blog/releases/tag/v0.1.0) registra o manifesto verificado e o digest. Este registro é histórico; confirmar a versão em produção antes de operar.
 - Deploy depende da CI bem-sucedida do SHA atual de main. SemVer parte da última release publicada e verificada: mudanças comuns PATCH, `feat:` MINOR e breaking changes MAJOR. Tags/releases só são publicadas após health e identidade do runtime. Falha de publicação exige reutilizar o artefato original; não reconstruir outra imagem com a mesma versão nem sobrescrever tags.
+- O gate de deploy exige uma CI com evento `push` em main para o SHA exato; CI via `workflow_dispatch` não libera o deploy. Fazer merges com token de usuário (`gh pr merge --squash`) e conferir que a CI de push foi criada; se não aparecer, um novo push em main (PR pequena) dispara CI e Deploy.
 - A chave dedicada chama o gateway Cloudbox comum com app fixo; o token GHCR curto
   segue por stdin e o host apaga o `DOCKER_CONFIG` temporário após o pull. O helper
   específico continua dono de health, checkpoint e rollback. O bootstrap inicial
