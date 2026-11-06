@@ -81,7 +81,7 @@
     "node-releases": "2.0.51",
     "update-browserslist-db": "1.2.3",
     "electron-to-chromium": "1.5.393",
-    "hono": "4.13.7",
+    "hono": "4.13.11",
     "@grpc/grpc-js": "1.14.5",
     "@modelcontextprotocol/sdk": "1.31.0",
     "body-parser": "2.3.0",
