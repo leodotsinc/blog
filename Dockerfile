@@ -1,4 +1,4 @@
-FROM node:26-alpine@sha256:143494b1da2945f061539253adc65e4f1569ddf07da2d384c022c791a9d90a4a AS base
+FROM node:26-alpine@sha256:8996bb5821d62a8fd9bb27c1cb07462f3fdce6e47d640c6a881ead0b064ce216 AS base
 
 # Apply Alpine's current zlib security fix before either application stage.
 RUN apk add --no-cache 'zlib>=1.3.2-r1'
