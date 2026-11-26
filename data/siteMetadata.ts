@@ -1,6 +1,6 @@
 export const siteMetadata = {
   title: "Leonardo's Blog",
-  email: "itsleonardotorres@gmail.com",
+  email: "leonardo@leodots.com",
   github: "https://github.com/leodots",
   linkedin: "https://linkedin.com/in/leodots",
   instagram: "https://instagram.com/lleotorres",
